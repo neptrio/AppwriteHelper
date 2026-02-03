@@ -7,13 +7,13 @@
     <Title>Appwrite Authentication Helper</Title>
     <Authors>Kevin Meyer</Authors>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
-		<AssemblyVersion>1.0.3</AssemblyVersion>
+		<AssemblyVersion>0.25.4</AssemblyVersion>
 		<FileVersion>$(AssemblyVersion)</FileVersion>
 		<Version>$(AssemblyVersion)</Version>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Appwrite" Version="0.13.0" />
+    <PackageReference Include="Appwrite" Version="0.25.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication" Version="2.3.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.Abstractions" Version="2.3.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="8.0.16" />
