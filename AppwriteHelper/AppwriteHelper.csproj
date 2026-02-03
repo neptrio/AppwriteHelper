@@ -13,6 +13,10 @@
 		<Version>$(AssemblyVersion)</Version>
   </PropertyGroup>
 
+	<PropertyGroup>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+	</PropertyGroup>
+	
   <ItemGroup>
     <PackageReference Include="Appwrite" Version="0.25.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication" Version="2.3.0" />
