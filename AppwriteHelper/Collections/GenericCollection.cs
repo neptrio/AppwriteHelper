@@ -3,7 +3,7 @@ using Appwrite.Services;
 using AppwriteHelper.Models;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Newtonsoft.Json;
+using System.Text.Json;
 
 namespace AppwriteHelper.Collections
 {
@@ -142,7 +142,7 @@ namespace AppwriteHelper.Collections
                                    data: row,
                                    permissions: permissions);
 
-            return JsonConvert.DeserializeObject<T>(JsonConvert.SerializeObject(updatedDocument.Data));
+            return JsonSerializer.Deserialize<T>(JsonSerializer.Serialize(updatedDocument.Data));
         }
 
         [Obsolete("This method has been deprecated. Please use `UpdateRow` instead.")]
@@ -154,7 +154,7 @@ namespace AppwriteHelper.Collections
                                    data: document,
                                    permissions: permissions);
 
-            return JsonConvert.DeserializeObject<T>(JsonConvert.SerializeObject(updatedDocument.Data));
+            return JsonSerializer.Deserialize<T>(JsonSerializer.Serialize(updatedDocument.Data));
         }
 
         public async Task<T?> UpdateDocument(string documentId, object? document, List<string>? permissions = null, bool useServerClient = false)
@@ -165,7 +165,7 @@ namespace AppwriteHelper.Collections
                                    data: document,
                                    permissions: permissions);
 
-            return JsonConvert.DeserializeObject<T>(JsonConvert.SerializeObject(updatedDocument.Data));
+            return JsonSerializer.Deserialize<T>(JsonSerializer.Serialize(updatedDocument.Data));
         }
 
         public async Task<T?> CreateDocument(T document, List<string>? permissions = null, bool useServerClient = false)
@@ -179,7 +179,7 @@ namespace AppwriteHelper.Collections
                                    permissions: permissions
 
                                );
-            return JsonConvert.DeserializeObject<T>(JsonConvert.SerializeObject(newDocument.Data));
+            return JsonSerializer.Deserialize<T>(JsonSerializer.Serialize(newDocument.Data));
 
         }
 
@@ -204,7 +204,7 @@ namespace AppwriteHelper.Collections
                                    collectionId: COLLECTION_ID,
                                    documentId: id
                                );
-            return JsonConvert.DeserializeObject<T>(JsonConvert.SerializeObject(document.Data));
+            return JsonSerializer.Deserialize<T>(JsonSerializer.Serialize(document.Data));
 
         }
 
@@ -220,7 +220,7 @@ namespace AppwriteHelper.Collections
 
             foreach (var document in documentsFromDatabase.Documents)
             {
-                var d = JsonConvert.DeserializeObject<T>(JsonConvert.SerializeObject(document.Data));
+                var d = JsonSerializer.Deserialize<T>(JsonSerializer.Serialize(document.Data));
                 if (d == null)
                     continue;
 

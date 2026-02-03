@@ -1,16 +1,16 @@
-﻿using Newtonsoft.Json;
+﻿using System.Text.Json.Serialization;
 
 namespace AppwriteHelper.Models
 {
     public abstract class DocumentData
     {
-        [JsonProperty("$id")]
+        [JsonPropertyName("$id")]
         public string? Id { get; set; }
 
-        [JsonProperty("$permissions")]
+        [JsonPropertyName("$permissions")]
         public string[]? Permissions { get; set; }
 
-        [JsonProperty("$createdAt")]
+        [JsonPropertyName("$createdAt")]
         public DateTimeOffset? CreatedAt { get; set; }
     }
 }
