@@ -12,6 +12,5 @@ namespace AppwriteHelper.Models
 
         [JsonProperty("$createdAt")]
         public DateTimeOffset? CreatedAt { get; set; }
-
     }
 }

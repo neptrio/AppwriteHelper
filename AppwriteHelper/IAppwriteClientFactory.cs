@@ -7,7 +7,7 @@ namespace AppwriteHelper
         Client? Client { get; }
 
         Client CreateServerClientFromConfig(string? apiKey = null);
-        Client CreateUserClient();
+        Client CreateBaseUserClient();
         Client CreateUserClientFromSession(string session);
         Client CreateUserClientFromToken(string appwriteJwt);
         

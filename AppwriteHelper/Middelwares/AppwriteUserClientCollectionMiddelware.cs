@@ -23,7 +23,7 @@ namespace AppwriteHelper.Middelwares
             }
             else
             {
-                _client?.SetAppwriteClient(_client.CreateUserClient());
+                _client?.SetAppwriteClient(_client.CreateBaseUserClient());
             }
 
             return next(context);

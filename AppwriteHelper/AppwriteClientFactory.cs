@@ -51,15 +51,15 @@ namespace AppwriteHelper
 
         public Client CreateUserClientFromToken(string appwriteJwt)
         {
-            return CreateUserClient().SetJWT(appwriteJwt);
+            return CreateBaseUserClient().SetJWT(appwriteJwt);
         }
 
         public Client CreateUserClientFromSession(string session)
         {
-            return CreateUserClient().SetSession(session);
+            return CreateBaseUserClient().SetSession(session);
         }
 
-        public Client CreateUserClient()
+        public Client CreateBaseUserClient()
         {
             var client = new Client();
             client
