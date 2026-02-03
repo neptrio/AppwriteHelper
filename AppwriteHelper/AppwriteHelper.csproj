@@ -13,14 +13,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include=".github\workflows\build.yml" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Include=".github\workflows\publish.yml" />
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="Appwrite" Version="0.13.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication" Version="2.3.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.Abstractions" Version="2.3.0" />
