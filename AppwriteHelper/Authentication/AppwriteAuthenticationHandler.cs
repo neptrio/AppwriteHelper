@@ -4,10 +4,10 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Newtonsoft.Json;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
+using System.Text.Json;
 
 namespace AppwriteHelper.Authentication
 {
@@ -158,7 +158,7 @@ namespace AppwriteHelper.Authentication
 
             var token = new AuthenticationToken { Name = AppwriteAuthenticationDefaults.AuthenticationTokenAppwriteJwt, Value = jwt.Jwt };
             var tokenExpiration = new AuthenticationToken { Name = AppwriteAuthenticationDefaults.AuthenticationTokenAppwriteJwtExpires, Value = jwtToken.ValidTo.ToString() };
-            var appwriteSession = new AuthenticationToken { Name = AppwriteAuthenticationDefaults.AuthenticationTokenAppwriteSession, Value = JsonConvert.SerializeObject(session.ToMap()) };
+            var appwriteSession = new AuthenticationToken { Name = AppwriteAuthenticationDefaults.AuthenticationTokenAppwriteSession, Value = JsonSerializer.Serialize(session.ToMap()) };
 
             authenticationProperties.StoreTokens(new List<AuthenticationToken>() { token, appwriteSession, tokenExpiration });
             var ticket = new AuthenticationTicket(principal, authenticationProperties, Scheme.Name);

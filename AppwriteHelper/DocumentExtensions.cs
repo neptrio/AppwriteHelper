@@ -1,7 +1,8 @@
 ﻿using AppwriteHelper.Models;
-using Newtonsoft.Json;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace AppwriteHelper
 {
@@ -28,7 +29,7 @@ namespace AppwriteHelper
                 ProcessMemberExpression(unaryExpression.Operand, obj, selectedProperties);
             }
 
-            return JsonConvert.SerializeObject(selectedProperties);
+            return JsonSerializer.Serialize(selectedProperties);
         }
 
         private static void ProcessMemberExpression(Expression expression, object obj, Dictionary<string, object> properties)
@@ -38,7 +39,7 @@ namespace AppwriteHelper
                 var propInfo = memberExpression.Member as PropertyInfo;
                 if (propInfo != null)
                 {
-                    var jsonName = propInfo.GetCustomAttribute<JsonPropertyAttribute>()?.PropertyName ?? propInfo.Name;
+                    var jsonName = propInfo.GetCustomAttribute<JsonPropertyNameAttribute>()?.Name ?? propInfo.Name;
                     var value = propInfo.GetValue(obj);
                     properties[jsonName] = value;
                 }
