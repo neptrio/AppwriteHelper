@@ -17,6 +17,9 @@ namespace AppwriteHelper.Collections
         private Databases? UserDatabases;
         private Databases? ServerDatabases;
 
+        private TablesDB? UserTables;
+        private TablesDB? ServerTables;
+
         private IAppwriteClientFactory? _userAppwriteClient;
         private IAppwriteClientFactory? _serverAppwriteClient;
 
@@ -56,6 +59,9 @@ namespace AppwriteHelper.Collections
             _serverAppwriteClient = client;
         }
 
+        #region Obsolet Databases
+
+        [Obsolete]
         private Databases GetOrInitUserDatabases()
         {
             if (UserDatabases == null)
@@ -69,6 +75,7 @@ namespace AppwriteHelper.Collections
             return UserDatabases;
         }
 
+        [Obsolete]
         private Databases GetOrInitServerDatabases()
         {
             if (ServerDatabases == null)
@@ -82,6 +89,36 @@ namespace AppwriteHelper.Collections
             return ServerDatabases;
         }
 
+        #endregion
+
+        private TablesDB GetOrInitUserTables()
+        {
+            if (UserTables == null)
+            {
+                if (_userAppwriteClient?.Client == null)
+                    throw new InvalidOperationException();
+
+                UserTables = new(_userAppwriteClient.Client);
+            }
+
+            return UserTables;
+        }
+
+        private TablesDB GetOrInitServerTables()
+        {
+            if (ServerTables == null)
+            {
+                if (_serverAppwriteClient?.Client == null)
+                    throw new InvalidOperationException();
+
+                ServerTables = new(_serverAppwriteClient.Client);
+            }
+
+            return ServerTables;
+        }
+
+
+        [Obsolete("This method has been deprecated. Please use `GetTables` instead.")]
         private Databases GetDatabases(bool userServerClient)
         {
             if (userServerClient)
@@ -89,6 +126,26 @@ namespace AppwriteHelper.Collections
             return GetOrInitUserDatabases();
         }
 
+        
+        private TablesDB GetTables(bool userServerClient)
+        {
+            if (userServerClient)
+                return GetOrInitServerTables();
+            return GetOrInitUserTables();
+        }
+
+        public async Task<T?> UpdateRow(T row, List<string>? permissions = null, bool useServerClient = false)
+        {
+            var updatedDocument = await GetTables(useServerClient).UpdateRow(databaseId: DATABASE_ID,
+                                   tableId: COLLECTION_ID,
+                                   rowId: row.Id,
+                                   data: row,
+                                   permissions: permissions);
+
+            return JsonConvert.DeserializeObject<T>(JsonConvert.SerializeObject(updatedDocument.Data));
+        }
+
+        [Obsolete("This method has been deprecated. Please use `UpdateRow` instead.")]
         public async Task<T?> UpdateDocument(T document, List<string>? permissions = null, bool useServerClient = false)
         {
             var updatedDocument = await GetDatabases(useServerClient).UpdateDocument(databaseId: DATABASE_ID,
