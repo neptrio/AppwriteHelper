@@ -1,5 +1,6 @@
 ﻿using AppwriteHelper.Authentication;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -9,13 +10,12 @@ namespace AppwriteHelper.Middelwares
     {
         private readonly IAppwriteClientFactory? _client = client;
 
-        public Task InvokeAsync(HttpContext context, RequestDelegate next)
+        public async Task InvokeAsync(HttpContext context, RequestDelegate next)
         {
             var authenticateResultFeature = context.Features.Get<IAuthenticateResultFeature>();
             var authenticationProperties = authenticateResultFeature?.AuthenticateResult?.Properties;
             var token = authenticationProperties?.GetTokenValue(AppwriteAuthenticationDefaults.AuthenticationTokenAppwriteJwt);
             var session = authenticationProperties?.GetTokenValue(AppwriteAuthenticationDefaults.AuthenticationTokenAppwriteSession);
-
 
             if (authenticateResultFeature?.AuthenticateResult?.Succeeded == true)
             {
@@ -24,7 +24,8 @@ namespace AppwriteHelper.Middelwares
                     if (!string.IsNullOrEmpty(session))
                     {
                         _client.SetAppwriteClient(_client.CreateUserClientFromSession(session));
-                        return next(context);
+                        await  next(context);
+                        return;
                     }
 
                     if (!string.IsNullOrEmpty(token))
@@ -38,7 +39,8 @@ namespace AppwriteHelper.Middelwares
                 _client?.SetAppwriteClient(_client.CreateBaseUserClient());
             }
 
-            return next(context);
+            await next(context);
+            return;
         }
     }
 }

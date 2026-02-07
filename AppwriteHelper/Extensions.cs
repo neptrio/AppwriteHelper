@@ -1,4 +1,5 @@
-﻿using AppwriteHelper.Collections;
+﻿using AppwriteHelper.Authentication;
+using AppwriteHelper.Collections;
 using AppwriteHelper.Middelwares;
 using AppwriteHelper.Models;
 using Microsoft.AspNetCore.Builder;
@@ -22,6 +23,12 @@ namespace AppwriteHelper
 
         public static IServiceCollection AddAppwriteServerClient(this IServiceCollection services)
             => AddAppwriteClient(services, Constants.APPWRITE_CLIENT_SERVER, true);
+
+        public static IServiceCollection AddAppwriteOAuthCallbackHelper(this IServiceCollection services)
+        {
+            services.AddScoped<AppwriteSignInCallbackHelper>();
+            return services;
+        }
 
         public static IServiceCollection AddAppwriteClient(this IServiceCollection services, string clientKey, bool createServerClientFromConfig = false)
         {

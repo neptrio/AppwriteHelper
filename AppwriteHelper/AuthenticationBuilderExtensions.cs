@@ -69,12 +69,20 @@ namespace AppwriteHelper
 
                     jwtOptions.TokenValidationParameters = new TokenValidationParameters
                     {
+                        ValidateIssuerSigningKey = false,
+                        RequireSignedTokens = false,
                         ValidateIssuer = false,
                         ValidateAudience = false,
                         ValidateLifetime = true,
-                        ValidateIssuerSigningKey = false,
-                        SignatureValidator = static (token, validationParameters) => new JsonWebToken(token)
+                        SignatureValidator = (token, parameters) =>
+                        {
+                            var handler = new JsonWebTokenHandler();
+                            return handler.ReadJsonWebToken(token);
+                        }
                     };
+
+                    jwtOptions.TokenHandlers.Clear();
+                    jwtOptions.TokenHandlers.Add(new AppwriteJsonWebTokenHandler(appwriteOptions, jwtBearerScheme));
                 });
 
             builder.AddJwtBearer(jwtBearerScheme);
