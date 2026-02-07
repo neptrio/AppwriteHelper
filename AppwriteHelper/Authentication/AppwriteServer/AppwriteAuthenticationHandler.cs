@@ -9,7 +9,7 @@ using System.Security.Claims;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 
-namespace AppwriteHelper.Authentication
+namespace AppwriteHelper.Authentication.AppwriteServer
 {
     public class AppwriteAuthenticationOptions : RemoteAuthenticationOptions
     {
@@ -38,7 +38,6 @@ namespace AppwriteHelper.Authentication
             {
                 throw new ArgumentException("Options.CallbackPath must be provided.", nameof(CallbackPath));
             }
-
         }
     }
 
@@ -157,7 +156,7 @@ namespace AppwriteHelper.Authentication
             //authenticationProperties.ExpiresUtc = jwtToken.ValidTo.AddMinutes(-14);
 
             var token = new AuthenticationToken { Name = AppwriteAuthenticationDefaults.AuthenticationTokenAppwriteJwt, Value = jwt.Jwt };
-            var tokenExpiration = new AuthenticationToken { Name = AppwriteAuthenticationDefaults.AuthenticationTokenAppwriteJwtExpires, Value = jwtToken.ValidTo.ToString() };
+            var tokenExpiration = new AuthenticationToken { Name = AppwriteAuthenticationDefaults.AuthenticationTokenAppwriteJwtExpires, Value = jwtToken.ValidTo.ToString("O") };
             var appwriteSession = new AuthenticationToken { Name = AppwriteAuthenticationDefaults.AuthenticationTokenAppwriteSession, Value = JsonSerializer.Serialize(session.ToMap()) };
 
             authenticationProperties.StoreTokens(new List<AuthenticationToken>() { token, appwriteSession, tokenExpiration });
