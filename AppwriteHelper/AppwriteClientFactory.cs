@@ -14,7 +14,7 @@ namespace AppwriteHelper
 
         private string GetProjectFromConfig()
         {
-            return _configuration["Appwrite:Settings:Project"] ?? _configuration["appwrite_project_id"] ?? throw new OptionsValidationException(
+            return _configuration["appwrite_project_id"] ?? _configuration["Appwrite:Settings:Project"] ?? throw new OptionsValidationException(
                 "Appwrite",
                 typeof(string),
                 ["Missing Appwrite:Settings:Project or appwrite_project_id (legacy)"]);
@@ -22,7 +22,7 @@ namespace AppwriteHelper
 
         private string GetKeyFromConfig()
         {
-            return _configuration["Appwrite:Settings:Key"] ?? _configuration["appwrite_api_key"] ?? throw new OptionsValidationException(
+            return  _configuration["appwrite_api_key"] ?? _configuration["Appwrite:Settings:Key"] ?? throw new OptionsValidationException(
                 "Appwrite",
                 typeof(string),
                 ["Missing Appwrite:Settings:Key or appwrite_api_key (legacy)"]);
