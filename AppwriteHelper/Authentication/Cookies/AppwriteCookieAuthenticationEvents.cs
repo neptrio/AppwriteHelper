@@ -1,5 +1,6 @@
 using Appwrite;
 using Appwrite.Models;
+using Appwrite.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Http;
@@ -9,14 +10,12 @@ using System.Text.Json;
 
 namespace AppwriteHelper.Authentication.Cookies
 {
-    public class AppwriteCookieAuthenticationEvents : CookieAuthenticationEvents
+    public sealed class AppwriteCookieAuthenticationEvents : CookieAuthenticationEvents
     {
         private readonly IOptionsMonitor<AppwriteCookieAuthenticationOptions> _options;
 
         public AppwriteCookieAuthenticationEvents(IOptionsMonitor<AppwriteCookieAuthenticationOptions> options)
-        {
-            _options = options;
-        }
+            => _options = options;
 
         public override Task RedirectToLogin(RedirectContext<CookieAuthenticationOptions> context)
         {
@@ -33,10 +32,30 @@ namespace AppwriteHelper.Authentication.Cookies
         public override async Task ValidatePrincipal(CookieValidatePrincipalContext context)
         {
             var options = _options.Get(context.Scheme.Name);
-
-            if (string.IsNullOrWhiteSpace(options.AppwriteEndpoint) || string.IsNullOrWhiteSpace(options.AppwriteProject))
+            if (!options.HasEndpointAndProject())
                 return;
 
+            if (!TryGetSession(context, out var session))
+            {
+                // Only reject when we actually need the session later.
+                if (options.CheckForRevokedSessions || options.RefreshAndStoreJwtTokenInCookie)
+                {
+                    await RejectAsync(context);
+                }
+                return;
+            }
+
+            // Optional: revoked session check
+            if (options.CheckForRevokedSessions)
+            {
+                if (!await IsSessionValidAsync(options, session.Secret))
+                {
+                    await RejectAsync(context);
+                    return;
+                }
+            }
+
+            // Optional: refresh JWT
             if (!options.RefreshAndStoreJwtTokenInCookie)
                 return;
 
@@ -44,47 +63,96 @@ namespace AppwriteHelper.Authentication.Cookies
             if (!ShouldRenewByJwt(context, now, options.JwtRenewalThreshold))
                 return;
 
-            var appwriteSessionJson = context.Properties.GetTokenValue(AppwriteAuthenticationDefaults.AuthenticationTokenAppwriteSession);
-            if (string.IsNullOrEmpty(appwriteSessionJson))
+            var account = CreateAccount(options, session.Secret);
+
+            if (options.ExtendSessionOnRenewal)
+            {
+                if (string.IsNullOrEmpty(session.Id))
+                {
+                    await RejectAsync(context);
+                    return;
+                }
+
+                if (!await TryUpdateSessionAsync(account, session.Id))
+                {
+                    await RejectAsync(context);
+                    return;
+                }
+            }
+
+            var newJwt = await TryCreateJwtAsync(account);
+            if (newJwt == null)
             {
                 await RejectAsync(context);
                 return;
             }
 
-            if (!TryGetSessionSecret(appwriteSessionJson, out var secret))
-            {
-                await RejectAsync(context);
-                return;
-            }
+            StoreJwtTokens(context, newJwt.Jwt);
+            context.ShouldRenew = true;
+        }
 
+        private static Account CreateAccount(AppwriteCookieAuthenticationOptions options, string sessionSecret)
+        {
             var client = new Client()
                 .SetEndpoint(options.AppwriteEndpoint)
                 .SetProject(options.AppwriteProject)
-                .SetSession(secret);
+                .SetSession(sessionSecret);
 
-            var account = new Appwrite.Services.Account(client);
+            return new Account(client);
+        }
 
-            JWT newJwt;
+        private static async Task<bool> IsSessionValidAsync(AppwriteCookieAuthenticationOptions options, string sessionSecret)
+        {
             try
             {
-                newJwt = await account.CreateJWT();
+                var account = CreateAccount(options, sessionSecret);
+                var user = await account.Get();
+                return user != null;
             }
             catch
             {
-                await RejectAsync(context);
-                return;
+                return false;
             }
+        }
 
-            var jwtToken = new JwtSecurityToken(newJwt.Jwt);
+        private static async Task<bool> TryUpdateSessionAsync(Account account, string sessionId)
+        {
+            try
+            {
+                await account.UpdateSession(sessionId);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static async Task<JWT?> TryCreateJwtAsync(Account account)
+        {
+            try
+            {
+                return await account.CreateJWT();
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static void StoreJwtTokens(CookieValidatePrincipalContext context, string jwt)
+        {
+            var jwtToken = new JwtSecurityToken(jwt);
 
             var tokens = context.Properties.GetTokens().ToList();
-            tokens.RemoveAll(t => t.Name == AppwriteAuthenticationDefaults.AuthenticationTokenAppwriteJwt);
-            tokens.RemoveAll(t => t.Name == AppwriteAuthenticationDefaults.AuthenticationTokenAppwriteJwtExpires);
+            tokens.RemoveAll(t => t.Name is
+                AppwriteAuthenticationDefaults.AuthenticationTokenAppwriteJwt or
+                AppwriteAuthenticationDefaults.AuthenticationTokenAppwriteJwtExpires);
 
             tokens.Add(new AuthenticationToken
             {
                 Name = AppwriteAuthenticationDefaults.AuthenticationTokenAppwriteJwt,
-                Value = newJwt.Jwt
+                Value = jwt
             });
             tokens.Add(new AuthenticationToken
             {
@@ -93,7 +161,6 @@ namespace AppwriteHelper.Authentication.Cookies
             });
 
             context.Properties.StoreTokens(tokens);
-            context.ShouldRenew = true;
         }
 
         private static bool ShouldRenewByJwt(CookieValidatePrincipalContext context, DateTimeOffset now, TimeSpan threshold)
@@ -108,22 +175,16 @@ namespace AppwriteHelper.Authentication.Cookies
             return jwtExpires - now <= threshold;
         }
 
-        private static bool TryGetSessionSecret(string sessionJson, out string secret)
+        private static bool TryGetSession(CookieValidatePrincipalContext context, out AppwriteSession session)
         {
-            using var doc = JsonDocument.Parse(sessionJson);
-
-            if (doc.RootElement.TryGetProperty("secret", out var secretElement))
+            var json = context.Properties.GetTokenValue(AppwriteAuthenticationDefaults.AuthenticationTokenAppwriteSession);
+            if (string.IsNullOrEmpty(json))
             {
-                var value = secretElement.GetString();
-                if (!string.IsNullOrEmpty(value))
-                {
-                    secret = value;
-                    return true;
-                }
+                session = default;
+                return false;
             }
 
-            secret = string.Empty;
-            return false;
+            return AppwriteSession.TryParse(json, out session);
         }
 
         private static async Task RejectAsync(CookieValidatePrincipalContext context)
@@ -131,5 +192,44 @@ namespace AppwriteHelper.Authentication.Cookies
             context.RejectPrincipal();
             await context.HttpContext.SignOutAsync(context.Scheme.Name);
         }
+
+
+        private readonly record struct AppwriteSession(string Secret, string? Id)
+        {
+            public static bool TryParse(string sessionJson, out AppwriteSession session)
+            {
+                try
+                {
+                    using var doc = JsonDocument.Parse(sessionJson);
+                    var root = doc.RootElement;
+
+                    var secret = root.TryGetProperty("secret", out var s) ? s.GetString() : null;
+                    if (string.IsNullOrEmpty(secret))
+                    {
+                        session = default;
+                        return false;
+                    }
+
+                    string? id = null;
+                    if (root.TryGetProperty("$id", out var idEl) || root.TryGetProperty("id", out idEl))
+                        id = idEl.GetString();
+
+                    session = new AppwriteSession(secret, string.IsNullOrEmpty(id) ? null : id);
+                    return true;
+                }
+                catch
+                {
+                    session = default;
+                    return false;
+                }
+            }
+        }
+    }
+
+    internal static class AppwriteCookieAuthenticationOptionsExtensions
+    {
+        public static bool HasEndpointAndProject(this AppwriteCookieAuthenticationOptions options)
+            => !string.IsNullOrWhiteSpace(options.AppwriteEndpoint)
+               && !string.IsNullOrWhiteSpace(options.AppwriteProject);
     }
 }

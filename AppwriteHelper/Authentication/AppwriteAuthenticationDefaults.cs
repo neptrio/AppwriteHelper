@@ -11,5 +11,6 @@
         public const string AuthenticationTokenAppwriteSession = "AppwriteHelper.AuthenticationToken.Session";
 
         public const string CookieAuthenticationScheme = "AppwriteCookies";
+        public const string JwtAuthenticationScheme = "AppwriteJwt";
     }
 }

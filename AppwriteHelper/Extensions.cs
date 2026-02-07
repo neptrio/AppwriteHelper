@@ -1,19 +1,9 @@
-﻿using Appwrite;
-using AppwriteHelper.Authentication;
-using AppwriteHelper.Authentication.AppwriteServer;
-using AppwriteHelper.Authentication.Bearer;
-using AppwriteHelper.Authentication.Cookies;
-using AppwriteHelper.Collections;
+﻿using AppwriteHelper.Collections;
 using AppwriteHelper.Middelwares;
 using AppwriteHelper.Models;
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.IdentityModel.JsonWebTokens;
-using Microsoft.IdentityModel.Tokens;
-using System.Linq;
 
 namespace AppwriteHelper
 {
@@ -71,38 +61,8 @@ namespace AppwriteHelper
             return services;
         }
 
-        public static IApplicationBuilder UseAppwriteCollectionMiddleware(this IApplicationBuilder app) => app.UseMiddleware<AppwriteUserClientCollectionMiddelware>();
+        public static IApplicationBuilder UseAppwriteUserClientAuthentication(this IApplicationBuilder app) => app.UseMiddleware<AppwriteUserClientCollectionMiddelware>();
 
-        public static AuthenticationBuilder AddAppwriteAuthentication(this AuthenticationBuilder builder)
-        => builder.AddAppwriteAuthentication(AppwriteAuthenticationDefaults.AuthenticationScheme, _ => { });
-
-        public static AuthenticationBuilder AddAppwriteAuthentication(this AuthenticationBuilder builder, Action<AppwriteAuthenticationOptions> configureOptions)
-        => builder.AddAppwriteAuthentication(AppwriteAuthenticationDefaults.AuthenticationScheme, configureOptions);
-
-        public static AuthenticationBuilder AddAppwriteAuthentication(this AuthenticationBuilder builder, string authenticationScheme, Action<AppwriteAuthenticationOptions> configureOptions)
-       => builder.AddAppwriteAuthentication(authenticationScheme, AppwriteAuthenticationDefaults.DisplayName, configureOptions);
-
-        public static AuthenticationBuilder AddAppwriteAuthentication(this AuthenticationBuilder builder, string authenticationScheme, string? displayName, Action<AppwriteAuthenticationOptions> configureOptions)
-        {
-            return builder.AddRemoteScheme<AppwriteAuthenticationOptions, AppwriteAuthenticationHandler>(authenticationScheme, displayName, configureOptions);
-        }
-
-        public static AuthenticationBuilder AddAppwriteCookieAuthentication(this AuthenticationBuilder builder, Action<AppwriteCookieAuthenticationOptions> configureOptions)
-        {
-            return builder.AddAppwriteCookieAuthentication(AppwriteAuthenticationDefaults.CookieAuthenticationScheme, configureOptions);
-        }
-
-        public static AuthenticationBuilder AddAppwriteCookieAuthentication(this AuthenticationBuilder builder, string cookieScheme, Action<AppwriteCookieAuthenticationOptions> configureOptions)
-        {
-            builder.Services.Configure(cookieScheme, configureOptions);
-            builder.Services.AddScoped<AppwriteCookieAuthenticationEvents>();
-
-            builder.AddCookie(cookieScheme, options =>
-            { 
-                options.EventsType = typeof(AppwriteCookieAuthenticationEvents);
-            });
-
-            return builder;
-        }
+    
     }
 }

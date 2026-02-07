@@ -14,12 +14,24 @@ namespace AppwriteHelper.Middelwares
             var authenticateResultFeature = context.Features.Get<IAuthenticateResultFeature>();
             var authenticationProperties = authenticateResultFeature?.AuthenticateResult?.Properties;
             var token = authenticationProperties?.GetTokenValue(AppwriteAuthenticationDefaults.AuthenticationTokenAppwriteJwt);
+            var session = authenticationProperties?.GetTokenValue(AppwriteAuthenticationDefaults.AuthenticationTokenAppwriteSession);
+
 
             if (authenticateResultFeature?.AuthenticateResult?.Succeeded == true)
             {
                 if (_client != null)
+                {
+                    if (!string.IsNullOrEmpty(session))
+                    {
+                        _client.SetAppwriteClient(_client.CreateUserClientFromSession(session));
+                        return next(context);
+                    }
+
                     if (!string.IsNullOrEmpty(token))
+                    {
                         _client.SetAppwriteClient(_client.CreateUserClientFromToken(token));
+                    }
+                }
             }
             else
             {
