@@ -8,7 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\AppwriteHelper\AppwriteHelper.csproj" />
+    <ProjectReference Include="..\..\src\AppwriteHelper\AppwriteHelper.csproj" />
   </ItemGroup>
 
 </Project>
