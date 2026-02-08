@@ -10,13 +10,16 @@ namespace AppwriteHelper.Authentication.Cookies
             Cookie.Name = AppwriteAuthenticationDefaults.AppwriteHelperCookieName;
             Cookie.HttpOnly = true;
             Cookie.SecurePolicy = CookieSecurePolicy.Always;
-            Cookie.SameSite = SameSiteMode.None;
+            Cookie.SameSite = SameSiteMode.Lax;
+            Cookie.Path = "/";
             SlidingExpiration = true;
         }
 
         public CookieBuilder Cookie { get; } = new CookieBuilder();
 
         public TimeSpan ExpireTimeSpan { get; set; } = TimeSpan.FromMinutes(15);
+
+        public TimeSpan MaximumExpireTimeSpan { get; set; } = TimeSpan.FromHours(24);
 
         public bool SlidingExpiration { get; set; }
 

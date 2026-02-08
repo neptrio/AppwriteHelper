@@ -1,7 +1,9 @@
 using Appwrite.Models;
 using AppwriteHelper.Authentication.AppwriteServer;
+using AppwriteHelper.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using System.Security.Claims;
 using System.Text.Json;
 
@@ -13,6 +15,17 @@ namespace AppwriteHelper.Authentication
 
         public async Task<AppwriteSignInResult> CreateSignInAsync(string userId, string secret, TimeSpan? cookieLifetime = null, bool isPersistent = true, string? authenticationType = null)
         {
+            return await CreateSignInAsync(userId, secret, cookieLifetime, isPersistent, authenticationType, null);
+        }
+
+        public async Task<AppwriteSignInResult> CreateSignInAsync(
+            string userId, 
+            string secret, 
+            TimeSpan? cookieLifetime = null, 
+            bool isPersistent = true, 
+            string? authenticationType = null,
+            IOptionsMonitor<AppwriteCookieAuthenticationOptions>? cookieOptions = null)
+        {
             ArgumentException.ThrowIfNullOrEmpty(userId);
             ArgumentException.ThrowIfNullOrEmpty(secret);
 
@@ -20,8 +33,8 @@ namespace AppwriteHelper.Authentication
             var serverAccount = new Appwrite.Services.Account(serverClient);
 
             var session = await serverAccount.CreateSession(userId, secret);
-            if (session == null)
-                throw new InvalidOperationException("Invalid session");
+            if (session == null || string.IsNullOrEmpty(session.Secret))
+                throw new InvalidOperationException("Invalid session or session secret");
 
             var userClient = _appwriteClientFactory.CreateUserClientFromSession(session.Secret);
             var userAccount = new Appwrite.Services.Account(userClient);
@@ -47,7 +60,13 @@ namespace AppwriteHelper.Authentication
             var identity = new ClaimsIdentity(claims, authenticationType ?? AppwriteAuthenticationDefaults.CookieAuthenticationScheme);
             var principal = new ClaimsPrincipal(identity);
 
-            var expires = cookieLifetime ?? TimeSpan.FromMinutes(15);
+            // Enforce maximum cookie lifetime for security
+            var defaultExpireTime = TimeSpan.FromMinutes(15);
+            var maxExpireTime = cookieOptions?.CurrentValue?.MaximumExpireTimeSpan ?? TimeSpan.FromHours(24);
+            
+            var requestedExpireTime = cookieLifetime ?? defaultExpireTime;
+            var expires = requestedExpireTime > maxExpireTime ? maxExpireTime : requestedExpireTime;
+
             var authenticationProperties = new AuthenticationProperties
             {
                 IsPersistent = isPersistent,

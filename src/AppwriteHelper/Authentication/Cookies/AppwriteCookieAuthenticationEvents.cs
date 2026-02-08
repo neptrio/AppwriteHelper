@@ -4,6 +4,7 @@ using Appwrite.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.IdentityModel.Tokens.Jwt;
 using System.Text.Json;
@@ -13,9 +14,15 @@ namespace AppwriteHelper.Authentication.Cookies
     public sealed class AppwriteCookieAuthenticationEvents : CookieAuthenticationEvents
     {
         private readonly IOptionsMonitor<AppwriteCookieAuthenticationOptions> _options;
+        private readonly ILogger<AppwriteCookieAuthenticationEvents> _logger;
 
-        public AppwriteCookieAuthenticationEvents(IOptionsMonitor<AppwriteCookieAuthenticationOptions> options)
-            => _options = options;
+        public AppwriteCookieAuthenticationEvents(
+            IOptionsMonitor<AppwriteCookieAuthenticationOptions> options,
+            ILogger<AppwriteCookieAuthenticationEvents> logger)
+        {
+            _options = options;
+            _logger = logger;
+        }
 
         public override Task RedirectToLogin(RedirectContext<CookieAuthenticationOptions> context)
         {
@@ -55,8 +62,10 @@ namespace AppwriteHelper.Authentication.Cookies
             // Optional: additional online revoked session check
             if (options.CheckForRevokedSessions)
             {
-                if (!await IsSessionRevokedAsync(options, session.Secret))
+                var isSessionValid = await IsSessionRevokedAsync(options, session.Secret);
+                if (!isSessionValid)
                 {
+                    _logger.LogWarning("Session has been revoked");
                     await RejectAsync(context);
                     return;
                 }
@@ -91,39 +100,51 @@ namespace AppwriteHelper.Authentication.Cookies
             return new Account(client);
         }
 
-        private static async Task<bool> IsSessionRevokedAsync(AppwriteCookieAuthenticationOptions options, string sessionSecret)
+        private async Task<bool> IsSessionRevokedAsync(AppwriteCookieAuthenticationOptions options, string sessionSecret)
         {
             try
             {
                 var account = CreateAccountClient(options, sessionSecret);
                 var user = await account.Get();
-                return user == null;
+                // Return false if session is revoked (user is null), true if session is still valid
+                return user != null;
             }
-            catch
+            catch (Exception ex)
             {
-                return true;
+                _logger.LogWarning(ex, "Failed to validate session with Appwrite. Session will be rejected for security.");
+                // Fail secure - treat exception as revoked session
+                return false;
             }
         }
 
-        private static async Task<bool> TryUpdateSessionAsync(Account account, string sessionId)
+        private async Task<bool> TryUpdateSessionAsync(Account account, string sessionId)
         {
             try
             {
                 await account.UpdateSession(sessionId);
                 return true;
             }
-            catch
+            catch (Exception ex)
             {
+                _logger.LogWarning(ex, "Failed to update session {SessionId} with Appwrite", sessionId);
                 return false;
             }
         }
 
-        private static bool TryGetSession(CookieValidatePrincipalContext context, out Session session)
+        private bool TryGetSession(CookieValidatePrincipalContext context, out Session session)
         {
+            session = null!;
+
+            if (context?.Properties == null)
+            {
+                _logger.LogWarning("Cookie validation context or properties is null");
+                return false;
+            }
+
             var json = context.Properties.GetTokenValue(AppwriteAuthenticationDefaults.AuthenticationTokenAppwriteSession);
             if (string.IsNullOrEmpty(json))
             {
-                session = null!;
+                _logger.LogDebug("No Appwrite session token found in authentication properties");
                 return false;
             }
 
@@ -132,16 +153,16 @@ namespace AppwriteHelper.Authentication.Cookies
                 var deserializedSession = JsonSerializer.Deserialize<Session>(json);
                 if (deserializedSession == null || string.IsNullOrEmpty(deserializedSession.Secret))
                 {
-                    session = null!;
+                    _logger.LogWarning("Deserialized session is null or has empty secret");
                     return false;
                 }
 
                 session = deserializedSession;
                 return true;
             }
-            catch
+            catch (JsonException ex)
             {
-                session = null!;
+                _logger.LogWarning(ex, "Failed to deserialize session from authentication token");
                 return false;
             }
         }
