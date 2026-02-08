@@ -3,6 +3,7 @@ using Appwrite.Models;
 using Appwrite.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 using System.IdentityModel.Tokens.Jwt;
@@ -33,7 +34,10 @@ namespace AppwriteHelper.Authentication.Cookies
         {
             var options = _options.Get(context.Scheme.Name);
             if (!options.HasEndpointAndProject())
+            {
+                await RejectAsync(context);
                 return;
+            }
 
             if (!TryGetSession(context, out var session))
             {
@@ -42,24 +46,29 @@ namespace AppwriteHelper.Authentication.Cookies
             }
 
             // Check if session is expired
-            if (session.Expire != null)
+            if (string.IsNullOrWhiteSpace(session.Expire))
             {
-                var expireDate = DateTimeOffset.Parse(session.Expire);
-                if (expireDate <= DateTimeOffset.UtcNow)
-                {
-                    await RejectAsync(context);
-                    return;
-                }
+                await RejectAsync(context);
+                return;
+            }
+
+            if (!DateTimeOffset.TryParse(session.Expire, out var expireDate))
+            {
+                await RejectAsync(context);
+                return;
+            }
+
+            if (expireDate <= DateTimeOffset.UtcNow)
+            {
+                await RejectAsync(context);
+                return;
             }
 
             // Optional: additional online revoked session check
-            if (options.CheckForRevokedSessions)
+            if (options.CheckForRevokedSessions && !await IsSessionAcceptedByServerAsync(options, session.Secret))
             {
-                if (!await IsSessionRevokedAsync(options, session.Secret))
-                {
-                    await RejectAsync(context);
-                    return;
-                }
+                await RejectAsync(context);
+                return;
             }
 
             var account = CreateAccountClient(options, session.Secret);
@@ -91,17 +100,16 @@ namespace AppwriteHelper.Authentication.Cookies
             return new Account(client);
         }
 
-        private static async Task<bool> IsSessionRevokedAsync(AppwriteCookieAuthenticationOptions options, string sessionSecret)
+        private static async Task<bool> IsSessionAcceptedByServerAsync(AppwriteCookieAuthenticationOptions options, string sessionSecret)
         {
             try
             {
-                var account = CreateAccountClient(options, sessionSecret);
-                var user = await account.Get();
-                return user == null;
+                var user = await CreateAccountClient(options, sessionSecret).Get();
+                return !string.IsNullOrWhiteSpace(user?.Id);
             }
             catch
             {
-                return true;
+                return false;
             }
         }
 
@@ -137,6 +145,11 @@ namespace AppwriteHelper.Authentication.Cookies
                 }
 
                 session = deserializedSession;
+
+                //check at least for secret and id
+                if (String.IsNullOrEmpty(session.Secret) || String.IsNullOrEmpty(session.Id))
+                    return false;
+
                 return true;
             }
             catch
