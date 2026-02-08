@@ -10,6 +10,8 @@
         public const string AuthenticationTokenAppwriteJwtExpires = "AppwriteHelper.AuthenticationToken.Jwt.ExpiresAt";
         public const string AuthenticationTokenAppwriteSession = "AppwriteHelper.AuthenticationToken.Session";
 
+        public const string AppwriteHelperCookieName = "AppwriteHelperAuthCookie";
+
         public const string CookieAuthenticationScheme = "AppwriteCookies";
         public const string JwtAuthenticationScheme = "AppwriteJwt";
     }

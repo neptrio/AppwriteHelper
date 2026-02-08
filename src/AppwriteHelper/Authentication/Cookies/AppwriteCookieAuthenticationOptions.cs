@@ -7,7 +7,7 @@ namespace AppwriteHelper.Authentication.Cookies
     {
         public AppwriteCookieAuthenticationOptions()
         {
-            Cookie.Name = "auth_token";
+            Cookie.Name = AppwriteAuthenticationDefaults.AppwriteHelperCookieName;
             Cookie.HttpOnly = true;
             Cookie.SecurePolicy = CookieSecurePolicy.Always;
             Cookie.SameSite = SameSiteMode.None;
