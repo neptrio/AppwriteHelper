@@ -3,6 +3,7 @@ using Appwrite.Models;
 using Appwrite.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -40,7 +41,10 @@ namespace AppwriteHelper.Authentication.Cookies
         {
             var options = _options.Get(context.Scheme.Name);
             if (!options.HasEndpointAndProject())
+            {
+                await RejectAsync(context);
                 return;
+            }
 
             if (!TryGetSession(context, out var session))
             {
@@ -49,26 +53,29 @@ namespace AppwriteHelper.Authentication.Cookies
             }
 
             // Check if session is expired
-            if (session.Expire != null)
+            if (string.IsNullOrWhiteSpace(session.Expire))
             {
-                var expireDate = DateTimeOffset.Parse(session.Expire);
-                if (expireDate <= DateTimeOffset.UtcNow)
-                {
-                    await RejectAsync(context);
-                    return;
-                }
+                await RejectAsync(context);
+                return;
             }
 
-            // Optional: additional online session validity check
-            if (options.CheckForRevokedSessions)
+            if (!DateTimeOffset.TryParse(session.Expire, out var expireDate))
             {
-                var isSessionValid = await IsSessionValidAsync(options, session.Secret);
-                if (!isSessionValid)
-                {
-                    _logger.LogWarning("Session has been revoked or is no longer valid");
-                    await RejectAsync(context);
-                    return;
-                }
+                await RejectAsync(context);
+                return;
+            }
+
+            if (expireDate <= DateTimeOffset.UtcNow)
+            {
+                await RejectAsync(context);
+                return;
+            }
+
+            // Optional: additional online revoked session check
+            if (options.CheckForRevokedSessions && !await IsSessionAcceptedByServerAsync(options, session.Secret))
+            {
+                await RejectAsync(context);
+                return;
             }
 
             var account = CreateAccountClient(options, session.Secret);
@@ -100,19 +107,15 @@ namespace AppwriteHelper.Authentication.Cookies
             return new Account(client);
         }
 
-        private async Task<bool> IsSessionValidAsync(AppwriteCookieAuthenticationOptions options, string sessionSecret)
+        private static async Task<bool> IsSessionAcceptedByServerAsync(AppwriteCookieAuthenticationOptions options, string sessionSecret)
         {
             try
             {
-                var account = CreateAccountClient(options, sessionSecret);
-                var user = await account.Get();
-                // Return true if session is still valid, false if revoked
-                return user != null;
+                var user = await CreateAccountClient(options, sessionSecret).Get();
+                return !string.IsNullOrWhiteSpace(user?.Id);
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to validate session with Appwrite. Session will be rejected for security.");
-                // Fail secure - treat exception as invalid session
                 return false;
             }
         }
@@ -158,6 +161,11 @@ namespace AppwriteHelper.Authentication.Cookies
                 }
 
                 session = deserializedSession;
+
+                //check at least for secret and id
+                if (String.IsNullOrEmpty(session.Secret) || String.IsNullOrEmpty(session.Id))
+                    return false;
+
                 return true;
             }
             catch (JsonException ex)
