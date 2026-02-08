@@ -62,16 +62,7 @@ namespace AppwriteHelper.Authentication.Cookies
                 }
             }
 
-            // Optional: refresh JWT
-            if (!options.RefreshAndStoreJwtTokenInCookie)
-                return;
-
-            var now = DateTimeOffset.UtcNow;
-            if (!ShouldRenewByJwt(context, now, options.JwtRenewalThreshold))
-                return;
-
             var account = CreateAccountClient(options, session.Secret);
-
             if (options.ExtendSessionOnRenewal)
             {
                 if (string.IsNullOrEmpty(session.Id))
@@ -85,17 +76,9 @@ namespace AppwriteHelper.Authentication.Cookies
                     await RejectAsync(context);
                     return;
                 }
-            }
 
-            var newJwt = await TryCreateJwtAsync(account);
-            if (newJwt == null)
-            {
-                await RejectAsync(context);
-                return;
+                context.ShouldRenew = true;
             }
-
-            StoreJwtTokens(context, newJwt.Jwt);
-            context.ShouldRenew = true;
         }
 
         private static Account CreateAccountClient(AppwriteCookieAuthenticationOptions options, string sessionSecret)
@@ -133,53 +116,6 @@ namespace AppwriteHelper.Authentication.Cookies
             {
                 return false;
             }
-        }
-
-        private static async Task<JWT?> TryCreateJwtAsync(Account account)
-        {
-            try
-            {
-                return await account.CreateJWT();
-            }
-            catch
-            {
-                return null;
-            }
-        }
-
-        private static void StoreJwtTokens(CookieValidatePrincipalContext context, string jwt)
-        {
-            var jwtToken = new JwtSecurityToken(jwt);
-
-            var tokens = context.Properties.GetTokens().ToList();
-            tokens.RemoveAll(t => t.Name is
-                AppwriteAuthenticationDefaults.AuthenticationTokenAppwriteJwt or
-                AppwriteAuthenticationDefaults.AuthenticationTokenAppwriteJwtExpires);
-
-            tokens.Add(new AuthenticationToken
-            {
-                Name = AppwriteAuthenticationDefaults.AuthenticationTokenAppwriteJwt,
-                Value = jwt
-            });
-            tokens.Add(new AuthenticationToken
-            {
-                Name = AppwriteAuthenticationDefaults.AuthenticationTokenAppwriteJwtExpires,
-                Value = jwtToken.ValidTo.ToString("O")
-            });
-
-            context.Properties.StoreTokens(tokens);
-        }
-
-        private static bool ShouldRenewByJwt(CookieValidatePrincipalContext context, DateTimeOffset now, TimeSpan threshold)
-        {
-            var jwtExpiresValue = context.Properties.GetTokenValue(AppwriteAuthenticationDefaults.AuthenticationTokenAppwriteJwtExpires);
-            if (string.IsNullOrEmpty(jwtExpiresValue))
-                return false;
-
-            if (!DateTimeOffset.TryParse(jwtExpiresValue, out var jwtExpires))
-                return false;
-
-            return jwtExpires - now <= threshold;
         }
 
         private static bool TryGetSession(CookieValidatePrincipalContext context, out Session session)

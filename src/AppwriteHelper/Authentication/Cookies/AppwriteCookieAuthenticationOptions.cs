@@ -20,13 +20,6 @@ namespace AppwriteHelper.Authentication.Cookies
 
         public bool SlidingExpiration { get; set; }
 
-        public TimeSpan JwtRenewalThreshold { get; set; } = TimeSpan.FromMinutes(5);
-
-        /// <summary>
-        /// If enabled, the middleware refreshes the JWT before it expires and stores the new token in the cookie.
-        /// </summary>
-        public bool RefreshAndStoreJwtTokenInCookie { get; set; } = false;
-
         /// <summary>
         /// If enabled, the middleware checks if the session is still valid by calling the Appwrite account endpoint.
         /// </summary>
