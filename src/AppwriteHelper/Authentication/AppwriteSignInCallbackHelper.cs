@@ -13,11 +13,30 @@ namespace AppwriteHelper.Authentication
     {
         private readonly IAppwriteClientFactory _appwriteClientFactory = appwriteClientFactory;
 
+        /// <summary>
+        /// Creates a sign-in result for the specified user with default cookie options.
+        /// </summary>
+        /// <param name="userId">The user ID to sign in.</param>
+        /// <param name="secret">The authentication secret.</param>
+        /// <param name="cookieLifetime">The cookie lifetime. If null, defaults to 15 minutes. Maximum is enforced by cookie options.</param>
+        /// <param name="isPersistent">Whether the cookie should be persistent.</param>
+        /// <param name="authenticationType">The authentication type. If null, defaults to cookie authentication scheme.</param>
+        /// <returns>An AppwriteSignInResult containing the principal, authentication properties, session, and user information.</returns>
         public async Task<AppwriteSignInResult> CreateSignInAsync(string userId, string secret, TimeSpan? cookieLifetime = null, bool isPersistent = true, string? authenticationType = null)
         {
             return await CreateSignInAsync(userId, secret, cookieLifetime, isPersistent, authenticationType, null);
         }
 
+        /// <summary>
+        /// Creates a sign-in result for the specified user with specific cookie options for maximum lifetime enforcement.
+        /// </summary>
+        /// <param name="userId">The user ID to sign in.</param>
+        /// <param name="secret">The authentication secret.</param>
+        /// <param name="cookieLifetime">The cookie lifetime. If null, defaults to 15 minutes. Maximum is enforced by cookie options.</param>
+        /// <param name="isPersistent">Whether the cookie should be persistent.</param>
+        /// <param name="authenticationType">The authentication type. If null, defaults to cookie authentication scheme.</param>
+        /// <param name="cookieOptions">Cookie options containing security settings like MaximumExpireTimeSpan. If null, uses default max of 24 hours.</param>
+        /// <returns>An AppwriteSignInResult containing the principal, authentication properties, session, and user information.</returns>
         public async Task<AppwriteSignInResult> CreateSignInAsync(
             string userId, 
             string secret, 

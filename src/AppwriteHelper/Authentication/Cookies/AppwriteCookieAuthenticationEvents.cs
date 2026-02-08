@@ -59,13 +59,13 @@ namespace AppwriteHelper.Authentication.Cookies
                 }
             }
 
-            // Optional: additional online revoked session check
+            // Optional: additional online session validity check
             if (options.CheckForRevokedSessions)
             {
-                var isSessionValid = await IsSessionRevokedAsync(options, session.Secret);
+                var isSessionValid = await IsSessionValidAsync(options, session.Secret);
                 if (!isSessionValid)
                 {
-                    _logger.LogWarning("Session has been revoked");
+                    _logger.LogWarning("Session has been revoked or is no longer valid");
                     await RejectAsync(context);
                     return;
                 }
@@ -100,19 +100,19 @@ namespace AppwriteHelper.Authentication.Cookies
             return new Account(client);
         }
 
-        private async Task<bool> IsSessionRevokedAsync(AppwriteCookieAuthenticationOptions options, string sessionSecret)
+        private async Task<bool> IsSessionValidAsync(AppwriteCookieAuthenticationOptions options, string sessionSecret)
         {
             try
             {
                 var account = CreateAccountClient(options, sessionSecret);
                 var user = await account.Get();
-                // Return false if session is revoked (user is null), true if session is still valid
+                // Return true if session is still valid, false if revoked
                 return user != null;
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to validate session with Appwrite. Session will be rejected for security.");
-                // Fail secure - treat exception as revoked session
+                // Fail secure - treat exception as invalid session
                 return false;
             }
         }
@@ -131,9 +131,9 @@ namespace AppwriteHelper.Authentication.Cookies
             }
         }
 
-        private bool TryGetSession(CookieValidatePrincipalContext context, out Session session)
+        private bool TryGetSession(CookieValidatePrincipalContext context, out Session? session)
         {
-            session = null!;
+            session = null;
 
             if (context?.Properties == null)
             {
