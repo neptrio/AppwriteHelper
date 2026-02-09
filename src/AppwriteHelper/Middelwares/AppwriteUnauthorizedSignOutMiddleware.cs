@@ -27,7 +27,7 @@ public sealed class AppwriteUnauthorizedSignOutMiddleware
         {
             await _next(context);
         }
-        catch (AppwriteException ex) when (ex.Code == 401 || ex.Code == 403)
+        catch (AppwriteException ex) when (ex.Code == 401)
         {
             if (!context.Response.HasStarted)
             {
