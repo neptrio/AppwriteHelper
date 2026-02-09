@@ -70,7 +70,7 @@ namespace AppwriteHelper
 
         public static IApplicationBuilder UseAppwriteUserClientAuthentication(this IApplicationBuilder app) => app.UseMiddleware<AppwriteUserClientCollectionMiddelware>();
 
-        public static IApplicationBuilder UseAppwriteSessionSync(this IApplicationBuilder app, string cookieAuthScheme) => app.UseMiddleware<AppwriteUnauthorizedSignOutMiddleware>(cookieAuthScheme);
-        public static IApplicationBuilder UseAppwriteSessionSync(this IApplicationBuilder app) => app.UseMiddleware<AppwriteUnauthorizedSignOutMiddleware>(AppwriteAuthenticationDefaults.CookieAuthenticationScheme);
+        public static IApplicationBuilder UseAppwriteUnauthorizedSignOut(this IApplicationBuilder app, string cookieAuthScheme) => app.UseMiddleware<AppwriteUnauthorizedSignOutMiddleware>(cookieAuthScheme);
+        public static IApplicationBuilder UseAppwriteUnauthorizedSignOut(this IApplicationBuilder app) => app.UseMiddleware<AppwriteUnauthorizedSignOutMiddleware>(AppwriteAuthenticationDefaults.CookieAuthenticationScheme);
     }
 }
