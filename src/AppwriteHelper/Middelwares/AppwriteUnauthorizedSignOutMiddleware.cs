@@ -40,13 +40,3 @@ public sealed class AppwriteUnauthorizedSignOutMiddleware
         }
     }
 }
-
-public static class AppwriteSessionSyncMiddlewareExtensions
-{
-    public static IApplicationBuilder UseAppwriteSessionSync(
-        this IApplicationBuilder app,
-        string cookieAuthScheme)
-    {
-        return app.UseMiddleware<AppwriteSessionSyncMiddleware>(cookieAuthScheme);
-    }
-}
