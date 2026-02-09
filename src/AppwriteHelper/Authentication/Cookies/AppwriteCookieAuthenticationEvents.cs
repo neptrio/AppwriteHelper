@@ -36,6 +36,14 @@ namespace AppwriteHelper.Authentication.Cookies
         public override async Task ValidatePrincipal(CookieValidatePrincipalContext context)
         {
             var options = _options.Get(context.Scheme.Name);
+
+            var expiresUtc = context.Properties.ExpiresUtc;
+            if (expiresUtc.HasValue && expiresUtc.Value <= DateTimeOffset.UtcNow)
+            {
+                await RejectAsync(context);
+                return;
+            }
+
             if (!TryGetSession(context, out var session))
             {
                 await RejectAsync(context);
