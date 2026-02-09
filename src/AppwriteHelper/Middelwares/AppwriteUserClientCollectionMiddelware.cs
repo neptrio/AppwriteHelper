@@ -18,7 +18,7 @@ namespace AppwriteHelper.Middelwares
             var session = authenticationProperties?.GetTokenValue(AppwriteAuthenticationDefaults.AuthenticationTokenAppwriteSession);
 
             if (authenticateResultFeature?.AuthenticateResult?.Succeeded == true)
-            {
+          {
                 if (_client != null)
                 {
                     if (!string.IsNullOrEmpty(session))

@@ -53,43 +53,39 @@ namespace AppwriteHelper.Authentication
             var principal = new ClaimsPrincipal(identity);
 
             // Calculate session expiration time
-            if (!long.TryParse(session.Expire?.ToString(), out var expireUnixTimestamp))
-                throw new InvalidOperationException("Invalid session expiration timestamp");
+            if (!DateTimeOffset.TryParse(session.Expire?.ToString(), out var sessionExpireTime))
+                throw new InvalidOperationException("Invalid session expiration date");
 
-            var sessionExpireTime = DateTimeOffset.FromUnixTimeSeconds(expireUnixTimestamp);
-            var sessionExpireTimeSpan = sessionExpireTime - DateTimeOffset.UtcNow;
-
-            // Ensure session expiration is positive
-            if (sessionExpireTimeSpan <= TimeSpan.Zero)
+            if (sessionExpireTime <= DateTime.UtcNow)
                 throw new InvalidOperationException("Session has already expired");
 
             // Determine the cookie expiration time
-            TimeSpan cookieExpireTime;
+            DateTimeOffset cookieExpireTime;
             if (cookieOptions?.CurrentValue?.ExpireTimeSpan.HasValue == true)
             {
                 // Use ExpireTimeSpan from options, but cap it to session expiration
-                var configuredExpire = cookieOptions.CurrentValue.ExpireTimeSpan.Value;
-                cookieExpireTime = configuredExpire > sessionExpireTimeSpan 
-                    ? sessionExpireTimeSpan 
-                    : configuredExpire;
+                var configuredExpire = DateTimeOffset.UtcNow.Add(cookieOptions.CurrentValue.ExpireTimeSpan.Value);
+                cookieExpireTime = configuredExpire < sessionExpireTime
+                    ? configuredExpire
+                    : sessionExpireTime;
             }
             else
             {
                 // Use session expiration time
-                cookieExpireTime = sessionExpireTimeSpan;
+                cookieExpireTime = sessionExpireTime;
             }
 
             var authenticationProperties = new AuthenticationProperties
             {
                 IsPersistent = true,
-                ExpiresUtc = DateTimeOffset.UtcNow.Add(cookieExpireTime),
+                ExpiresUtc = cookieExpireTime,
                 AllowRefresh = false
             };
 
             var appwriteSession = new AuthenticationToken
             {
                 Name = AppwriteAuthenticationDefaults.AuthenticationTokenAppwriteSession,
-                Value = JsonSerializer.Serialize(session.ToMap())
+                Value = session.Secret
             };
 
             authenticationProperties.StoreTokens([appwriteSession]);
