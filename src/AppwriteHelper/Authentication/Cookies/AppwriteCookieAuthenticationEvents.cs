@@ -49,46 +49,6 @@ namespace AppwriteHelper.Authentication.Cookies
                 await RejectAsync(context);
                 return;
             }
-
-            // Optional: additional online revoked session check
-            if (options.CheckForRevokedSessions)
-            {
-                if (!options.HasEndpointAndProject())
-                {
-                    await RejectAsync(context);
-                    return;
-                }
-
-                if (!await IsSessionAcceptedByServerAsync(options, session))
-                {
-                    await RejectAsync(context);
-                    return;
-                }
-            }
-        }
-
-        private static Account CreateAccountClient(AppwriteCookieAuthenticationOptions options, string sessionSecret)
-        {
-            var client = new Client()
-                .SetEndpoint(options.AppwriteEndpoint)
-                .SetProject(options.AppwriteProject)
-                .SetSession(sessionSecret);
-
-            return new Account(client);
-        }
-
-        private async Task<bool> IsSessionAcceptedByServerAsync(AppwriteCookieAuthenticationOptions options, string sessionSecret)
-        {
-            try
-            {
-                var user = await CreateAccountClient(options, sessionSecret).Get();
-                return !string.IsNullOrWhiteSpace(user?.Id);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Session not accepted by Appwrite");
-                return false;
-            }
         }
 
         private bool TryGetSession(CookieValidatePrincipalContext context, out string session)
