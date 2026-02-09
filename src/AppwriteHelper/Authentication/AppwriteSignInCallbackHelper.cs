@@ -14,35 +14,15 @@ namespace AppwriteHelper.Authentication
         private readonly IAppwriteClientFactory _appwriteClientFactory = appwriteClientFactory;
 
         /// <summary>
-        /// Creates a sign-in result for the specified user with default cookie options.
+        /// Creates a sign-in result for the specified user with specific cookie options for lifetime enforcement.
         /// </summary>
         /// <param name="userId">The user ID to sign in.</param>
         /// <param name="secret">The authentication secret.</param>
-        /// <param name="cookieLifetime">The cookie lifetime. If null, defaults to 15 minutes. Maximum is enforced by cookie options.</param>
-        /// <param name="isPersistent">Whether the cookie should be persistent.</param>
-        /// <param name="authenticationType">The authentication type. If null, defaults to cookie authentication scheme.</param>
+        /// <param name="cookieOptions">Cookie options containing security settings like ExpireTimeSpan.</param>
         /// <returns>An AppwriteSignInResult containing the principal, authentication properties, session, and user information.</returns>
-        public async Task<AppwriteSignInResult> CreateSignInAsync(string userId, string secret, TimeSpan? cookieLifetime = null, bool isPersistent = true, string? authenticationType = null)
-        {
-            return await CreateSignInAsync(userId, secret, cookieLifetime, isPersistent, authenticationType, null);
-        }
-
-        /// <summary>
-        /// Creates a sign-in result for the specified user with specific cookie options for maximum lifetime enforcement.
-        /// </summary>
-        /// <param name="userId">The user ID to sign in.</param>
-        /// <param name="secret">The authentication secret.</param>
-        /// <param name="cookieLifetime">The cookie lifetime. If null, defaults to 15 minutes. Maximum is enforced by cookie options.</param>
-        /// <param name="isPersistent">Whether the cookie should be persistent.</param>
-        /// <param name="authenticationType">The authentication type. If null, defaults to cookie authentication scheme.</param>
-        /// <param name="cookieOptions">Cookie options containing security settings like MaximumExpireTimeSpan. If null, uses default max of 24 hours.</param>
-        /// <returns>An AppwriteSignInResult containing the principal, authentication properties, session, and user information.</returns>
-        public async Task<AppwriteSignInResult> CreateSignInAsync(
-            string userId, 
-            string secret, 
-            TimeSpan? cookieLifetime = null, 
-            bool isPersistent = true, 
-            string? authenticationType = null,
+        public async Task<AppwriteSignInResult> CreateAppwriteCookieSignInAsync(
+            string userId,
+            string secret,
             IOptionsMonitor<AppwriteCookieAuthenticationOptions>? cookieOptions = null)
         {
             ArgumentException.ThrowIfNullOrEmpty(userId);
@@ -59,38 +39,51 @@ namespace AppwriteHelper.Authentication
             var userAccount = new Appwrite.Services.Account(userClient);
 
             var user = await userAccount.Get();
+            if (user == null)
+                throw new InvalidOperationException("User not given");
 
             var claims = new List<Claim>
             {
-                new(ClaimTypes.Name, user?.Name ?? string.Empty),
-                new(ClaimTypes.Email, user?.Email ?? string.Empty),
-                new(ClaimTypes.NameIdentifier, user?.Id ?? string.Empty),
+                new(ClaimTypes.Name, user.Name ?? string.Empty),
+                new(ClaimTypes.Email, user.Email ?? string.Empty),
+                new(ClaimTypes.NameIdentifier, user.Id ?? string.Empty),
             };
 
-            //if (user?.Prefs.Data != null)
-            //{
-            //    foreach (var p in user.Prefs.Data)
-            //    {
-            //        if (!string.IsNullOrEmpty(p.Key))
-            //            claims.Add(new Claim(AppwriteClaimTypes.Pref(p.Key), p.Value.ToString()));
-            //    }
-            //}
-
-            var identity = new ClaimsIdentity(claims, authenticationType ?? AppwriteAuthenticationDefaults.CookieAuthenticationScheme);
+            var identity = new ClaimsIdentity(claims, AppwriteAuthenticationDefaults.CookieAuthenticationScheme);
             var principal = new ClaimsPrincipal(identity);
 
-            // Enforce maximum cookie lifetime for security
-            var defaultExpireTime = TimeSpan.FromMinutes(15);
-            var maxExpireTime = cookieOptions?.CurrentValue?.MaximumExpireTimeSpan ?? TimeSpan.FromHours(24);
-            
-            var requestedExpireTime = cookieLifetime ?? defaultExpireTime;
-            var expires = requestedExpireTime > maxExpireTime ? maxExpireTime : requestedExpireTime;
+            // Calculate session expiration time
+            if (!long.TryParse(session.Expire?.ToString(), out var expireUnixTimestamp))
+                throw new InvalidOperationException("Invalid session expiration timestamp");
+
+            var sessionExpireTime = DateTimeOffset.FromUnixTimeSeconds(expireUnixTimestamp);
+            var sessionExpireTimeSpan = sessionExpireTime - DateTimeOffset.UtcNow;
+
+            // Ensure session expiration is positive
+            if (sessionExpireTimeSpan <= TimeSpan.Zero)
+                throw new InvalidOperationException("Session has already expired");
+
+            // Determine the cookie expiration time
+            TimeSpan cookieExpireTime;
+            if (cookieOptions?.CurrentValue?.ExpireTimeSpan.HasValue == true)
+            {
+                // Use ExpireTimeSpan from options, but cap it to session expiration
+                var configuredExpire = cookieOptions.CurrentValue.ExpireTimeSpan.Value;
+                cookieExpireTime = configuredExpire > sessionExpireTimeSpan 
+                    ? sessionExpireTimeSpan 
+                    : configuredExpire;
+            }
+            else
+            {
+                // Use session expiration time
+                cookieExpireTime = sessionExpireTimeSpan;
+            }
 
             var authenticationProperties = new AuthenticationProperties
             {
-                IsPersistent = isPersistent,
-                ExpiresUtc = DateTimeOffset.UtcNow.Add(expires),
-                AllowRefresh = true
+                IsPersistent = true,
+                ExpiresUtc = DateTimeOffset.UtcNow.Add(cookieExpireTime),
+                AllowRefresh = false
             };
 
             var appwriteSession = new AuthenticationToken
@@ -99,7 +92,7 @@ namespace AppwriteHelper.Authentication
                 Value = JsonSerializer.Serialize(session.ToMap())
             };
 
-            authenticationProperties.StoreTokens(new List<AuthenticationToken> { appwriteSession });
+            authenticationProperties.StoreTokens([appwriteSession]);
 
             return new AppwriteSignInResult(principal, authenticationProperties, session, user);
         }

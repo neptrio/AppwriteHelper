@@ -1,14 +1,10 @@
 using Appwrite;
-using Appwrite.Models;
 using Appwrite.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using System.IdentityModel.Tokens.Jwt;
-using System.Text.Json;
 
 namespace AppwriteHelper.Authentication.Cookies
 {
@@ -40,60 +36,26 @@ namespace AppwriteHelper.Authentication.Cookies
         public override async Task ValidatePrincipal(CookieValidatePrincipalContext context)
         {
             var options = _options.Get(context.Scheme.Name);
-            if (!options.HasEndpointAndProject())
-            {
-                await RejectAsync(context);
-                return;
-            }
-
             if (!TryGetSession(context, out var session))
             {
                 await RejectAsync(context);
                 return;
             }
 
-            // Check if session is expired
-            if (string.IsNullOrWhiteSpace(session.Expire))
-            {
-                await RejectAsync(context);
-                return;
-            }
-
-            if (!DateTimeOffset.TryParse(session.Expire, out var expireDate))
-            {
-                await RejectAsync(context);
-                return;
-            }
-
-            if (expireDate <= DateTimeOffset.UtcNow)
-            {
-                await RejectAsync(context);
-                return;
-            }
-
             // Optional: additional online revoked session check
-            if (options.CheckForRevokedSessions && !await IsSessionAcceptedByServerAsync(options, session.Secret))
+            if (options.CheckForRevokedSessions)
             {
-                await RejectAsync(context);
-                return;
-            }
-
-            var account = CreateAccountClient(options, session.Secret);
-            if (options.ExtendSessionOnRenewal)
-            {
-                if (string.IsNullOrEmpty(session.Id))
+                if (!options.HasEndpointAndProject())
                 {
                     await RejectAsync(context);
                     return;
                 }
 
-                if (!await TryUpdateSessionAsync(account, session.Id))
+                if (!await IsSessionAcceptedByServerAsync(options, session))
                 {
                     await RejectAsync(context);
                     return;
                 }
-
-                context.ShouldRenew = true;
             }
         }
 
@@ -107,7 +69,7 @@ namespace AppwriteHelper.Authentication.Cookies
             return new Account(client);
         }
 
-        private static async Task<bool> IsSessionAcceptedByServerAsync(AppwriteCookieAuthenticationOptions options, string sessionSecret)
+        private async Task<bool> IsSessionAcceptedByServerAsync(AppwriteCookieAuthenticationOptions options, string sessionSecret)
         {
             try
             {
@@ -116,27 +78,14 @@ namespace AppwriteHelper.Authentication.Cookies
             }
             catch (Exception ex)
             {
+                _logger.LogWarning(ex, "Session not accepted by Appwrite");
                 return false;
             }
         }
 
-        private async Task<bool> TryUpdateSessionAsync(Account account, string sessionId)
+        private bool TryGetSession(CookieValidatePrincipalContext context, out string session)
         {
-            try
-            {
-                await account.UpdateSession(sessionId);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to update session {SessionId} with Appwrite", sessionId);
-                return false;
-            }
-        }
-
-        private bool TryGetSession(CookieValidatePrincipalContext context, out Session? session)
-        {
-            session = null;
+            session = "";
 
             if (context?.Properties == null)
             {
@@ -144,35 +93,14 @@ namespace AppwriteHelper.Authentication.Cookies
                 return false;
             }
 
-            var json = context.Properties.GetTokenValue(AppwriteAuthenticationDefaults.AuthenticationTokenAppwriteSession);
-            if (string.IsNullOrEmpty(json))
+            session = context.Properties.GetTokenValue(AppwriteAuthenticationDefaults.AuthenticationTokenAppwriteSession) ?? "";
+            if (string.IsNullOrEmpty(session))
             {
                 _logger.LogDebug("No Appwrite session token found in authentication properties");
                 return false;
             }
 
-            try
-            {
-                var deserializedSession = JsonSerializer.Deserialize<Session>(json);
-                if (deserializedSession == null || string.IsNullOrEmpty(deserializedSession.Secret))
-                {
-                    _logger.LogWarning("Deserialized session is null or has empty secret");
-                    return false;
-                }
-
-                session = deserializedSession;
-
-                //check at least for secret and id
-                if (String.IsNullOrEmpty(session.Secret) || String.IsNullOrEmpty(session.Id))
-                    return false;
-
-                return true;
-            }
-            catch (JsonException ex)
-            {
-                _logger.LogWarning(ex, "Failed to deserialize session from authentication token");
-                return false;
-            }
+            return true;
         }
 
         private static async Task RejectAsync(CookieValidatePrincipalContext context)
