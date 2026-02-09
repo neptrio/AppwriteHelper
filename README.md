@@ -6,19 +6,25 @@ Library for using Appwrite in C# projects.
 
 This package is under active development and should be used with caution, as significant changes may occur.
 
-Installation NuGet:
-```
+## Installation NuGet:
 PM > Install-Package AppwriteHelper
-```
 
-Usage:
-```csharp
-```
+# Usage:
 
 # Compatibility
 
-Version 1.7.x follows the Appwrite Server versioning scheme and is compatible with the corresponding Appwrite Server release. A drawback of following Appwrite’s versioning is that breaking changes are not immediately obvious when using semantic versioning. The patch version number does not follow Appwrite’s versioning.
+This package follows the Appwrite .NET SDK versioning scheme (0.x.0) and is compatible with the corresponding Appwrite .NET SDK release. A drawback of following Appwrite's versioning is that breaking changes are not immediately obvious when using semantic versioning. The patch version number (0.0.x) does not follow the SDK's versioning and may differ.
 
-# Development
+# Important Notes
 
-Development takes place on the main branch. Changes are selectively cherry-picked into the 1.8.x and 1.7.x maintenance branches.
+## Session Validation
+
+**Warning:** When an endpoint is authorized with AppwriteHelper Session authentication, the system cannot automatically detect if the session has been revoked on the Appwrite server unless the endpoint itself makes an Appwrite API call using the session from the AppwriteHelper cookie.
+
+To mitigate this limitation:			
+- **Use short cookie expiration times** to minimize the window of vulnerability
+- **Make an Appwrite server call at the beginning of your endpoint** to validate the session is still active		
+
+Without one of these measures, a revoked session cookie may still grant access until it expires locally.
+
+
