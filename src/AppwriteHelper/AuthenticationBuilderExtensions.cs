@@ -39,7 +39,7 @@ namespace AppwriteHelper
             builder.Services.AddScoped<AppwriteCookieAuthenticationEvents>();
 
             builder.AddCookie(cookieScheme, options =>
-            {
+            { 
                 options.EventsType = typeof(AppwriteCookieAuthenticationEvents);
             });
 
