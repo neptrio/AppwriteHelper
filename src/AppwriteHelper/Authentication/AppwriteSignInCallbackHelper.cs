@@ -82,13 +82,19 @@ namespace AppwriteHelper.Authentication
                 AllowRefresh = false
             };
 
+            var appwriteSessionId = new AuthenticationToken
+            {
+                Name = AppwriteAuthenticationDefaults.AuthenticationTokenAppwriteSessionId,
+                Value = session.Id
+            };
+
             var appwriteSession = new AuthenticationToken
             {
                 Name = AppwriteAuthenticationDefaults.AuthenticationTokenAppwriteSession,
                 Value = session.Secret
             };
 
-            authenticationProperties.StoreTokens([appwriteSession]);
+            authenticationProperties.StoreTokens([appwriteSessionId, appwriteSession]);
 
             return new AppwriteSignInResult(principal, authenticationProperties, session, user);
         }

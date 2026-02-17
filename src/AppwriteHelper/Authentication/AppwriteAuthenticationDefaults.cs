@@ -9,6 +9,7 @@
         public const string AuthenticationTokenAppwriteJwt = "AppwriteHelper.AuthenticationToken.Jwt";
         public const string AuthenticationTokenAppwriteJwtExpires = "AppwriteHelper.AuthenticationToken.Jwt.ExpiresAt";
         public const string AuthenticationTokenAppwriteSession = "AppwriteHelper.AuthenticationToken.Session";
+        public const string AuthenticationTokenAppwriteSessionId = "AppwriteHelper.AuthenticationToken.SessionId";
 
         public const string AppwriteHelperCookieName = "AppwriteHelperAuthCookie";
 
