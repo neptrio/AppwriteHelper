@@ -17,8 +17,9 @@ namespace AppwriteHelper.Authentication.AppwriteServer
         public string RemoteTokenValidationPath { get; set; }
         public string AppwriteEndpoint { get; set; }
         public string AppwriteProject { get; set; }
-        public string AppwriteKey { get; set; }
+        public string? AppwriteKey { get; set; }
         public bool UseAppwriteSession { get; set; } = false;
+        public long? AppwriteJWTDuration { get; set; } = null;
 
         public ICollection<string> Scope { get; } = new HashSet<string>();
 
@@ -148,7 +149,7 @@ namespace AppwriteHelper.Authentication.AppwriteServer
                     await account.CreateSession(userId, secret);
 
                     //jwt is added to the client.
-                    var jwt = await account.CreateJWT();
+                    var jwt = await account.CreateJWT(Options.AppwriteJWTDuration);
                     if (jwt == null)
                     {
                         return HandleRequestResult.Fail("Invalid jwt");
