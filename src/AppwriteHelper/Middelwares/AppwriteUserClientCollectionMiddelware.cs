@@ -1,8 +1,10 @@
-﻿using AppwriteHelper.Authentication;
+﻿using Appwrite.Models;
+using AppwriteHelper.Authentication;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using System.Text.Json;
 
 namespace AppwriteHelper.Middelwares
 {
@@ -23,7 +25,10 @@ namespace AppwriteHelper.Middelwares
                 {
                     if (!string.IsNullOrEmpty(session))
                     {
-                        _client.SetAppwriteClient(_client.CreateUserClientFromSession(session));
+                        var sessionObj = JsonSerializer.Deserialize<Session>(session);
+                        if(sessionObj != null)
+                            _client.SetAppwriteClient(_client.CreateUserClientFromSession(sessionObj.Secret));
+
                         await  next(context);
                         return;
                     }

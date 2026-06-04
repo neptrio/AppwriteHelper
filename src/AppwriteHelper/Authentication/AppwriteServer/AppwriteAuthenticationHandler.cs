@@ -1,5 +1,5 @@
 ﻿using Appwrite;
-using Appwrite.Models;
+using Appwrite.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
@@ -17,6 +17,9 @@ namespace AppwriteHelper.Authentication.AppwriteServer
         public string RemoteTokenValidationPath { get; set; }
         public string AppwriteEndpoint { get; set; }
         public string AppwriteProject { get; set; }
+        public string AppwriteKey { get; set; }
+        public bool UseAppwriteSession { get; set; } = false;
+
         public ICollection<string> Scope { get; } = new HashSet<string>();
 
         public AppwriteAuthenticationOptions()
@@ -85,7 +88,6 @@ namespace AppwriteHelper.Authentication.AppwriteServer
         /// <returns></returns>
         protected override async Task<HandleRequestResult> HandleRemoteAuthenticateAsync()
         {
-
             //Get Data from authentication result.
             string? secret = Request.Query["secret"];
             if (string.IsNullOrEmpty(secret))
@@ -99,67 +101,107 @@ namespace AppwriteHelper.Authentication.AppwriteServer
                 return HandleRequestResult.Fail("Invalid userId");
             }
 
-            //Create Session
-            var client = new Client().SetEndpoint(Options.AppwriteEndpoint + "/v1")
-                .SetProject(Options.AppwriteProject);
+            var userClient = new Client()
+                    .SetEndpoint(Options.AppwriteEndpoint + "/v1")
+                    .SetProject(Options.AppwriteProject);
 
-            Appwrite.Services.Account account = new(client);
+            Account account = new(userClient);
 
-            Session? session;
-            User? user;
-            JWT? jwt;
+            List<AuthenticationToken> authenticationTokens = [];
+            if (Options.UseAppwriteSession)
+            {
+                if (string.IsNullOrEmpty(Options.AppwriteKey))
+                    throw new InvalidOperationException("When using the Session option we need a key.");
+
+                try
+                {
+                    //to create a session with secret we need to use a key in the request.
+                    var adminClient = new Client()
+                        .SetEndpoint(Options.AppwriteEndpoint + "/v1")
+                        .SetProject(Options.AppwriteProject)
+                        .SetKey(Options.AppwriteKey);
+
+                    Account _account = new(adminClient);
+                    var session = await _account.CreateSession(userId, secret);
+
+                    if (string.IsNullOrEmpty(session.Secret))
+                    {
+                        return HandleRequestResult.Fail("Invalid session");
+                    }
+
+                    authenticationTokens.Add(new AuthenticationToken { Name = AppwriteAuthenticationDefaults.AuthenticationTokenAppwriteSession, Value = JsonSerializer.Serialize(session.ToMap()) });
+
+                    //add session to client to get account information later.
+                    userClient.SetSession(session.Secret);
+                }
+                catch (Exception exception)
+                {
+                    //Logger.LogError(exception);
+                    return HandleRequestResult.Fail(exception);
+                }
+            }
+            else
+            {
+                try
+                { 
+                    //session has here no secret. only login.
+                    await account.CreateSession(userId, secret);
+
+                    //jwt is added to the client.
+                    var jwt = await account.CreateJWT();
+                    if (jwt == null)
+                    {
+                        return HandleRequestResult.Fail("Invalid jwt");
+                    }
+
+                    var jwtToken = new JwtSecurityToken(jwt.Jwt);
+
+                    authenticationTokens.Add(new AuthenticationToken { Name = AppwriteAuthenticationDefaults.AuthenticationTokenAppwriteJwt, Value = jwt.Jwt });
+                    authenticationTokens.Add(new AuthenticationToken { Name = AppwriteAuthenticationDefaults.AuthenticationTokenAppwriteJwtExpires, Value = jwtToken.ValidTo.ToString("O") });
+                }
+                catch (Exception exception)
+                {
+                    //Logger.LogError(exception);
+                    return HandleRequestResult.Fail(exception);
+                }
+            }
+
+            List<Claim> claims = [];
             try
             {
-                //hier keine secret enthalten. CreateSession muss mit API-Key ausgeführt werden um ein secret zu bekommen. Das später für setsession verwendet werden kann.
-                session = await account.CreateSession(userId, secret);
-                if (session == null)
+                // Get authenticated user identity
+                var user = await account.Get();
+                if (user == null)
                 {
-                    return HandleRequestResult.Fail("Invalid session");
+                    return HandleRequestResult.Fail("Invalid user");
                 }
 
-                jwt = await account.CreateJWT();
-                user = await account.Get();
+                claims.Add(new Claim(ClaimTypes.Name, user?.Name ?? ""));
+                claims.Add(new Claim(ClaimTypes.Email, user?.Email ?? ""));
+                claims.Add(new Claim(ClaimTypes.NameIdentifier, user?.Id ?? ""));
+
+                // add prefs as claims
+                if (user?.Prefs.Data != null)
+                {
+                    foreach (var p in user?.Prefs.Data)
+                    {
+                        if (!string.IsNullOrEmpty(p.Key))
+                            claims.Add(new Claim(AppwriteClaimTypes.Pref(p.Key), p.Value.ToString()));
+                    }
+                }
             }
             catch (Exception exception)
             {
                 //Logger.LogError(exception);
-
                 return HandleRequestResult.Fail(exception);
-            }
-
-            var jwtToken = new JwtSecurityToken(jwt.Jwt);
-
-            // Create authenticated user identity
-            var claims = new List<Claim>
-            {
-                new Claim(ClaimTypes.Name, user?.Name ?? ""),
-                new Claim(ClaimTypes.Email, user?.Email?? ""),
-                new Claim(ClaimTypes.NameIdentifier, user?.Id?? ""),
-            };
-
-            // add prefs as claims
-            if (user?.Prefs.Data != null)
-            {
-                foreach (var p in user?.Prefs.Data)
-                {
-                    if (!string.IsNullOrEmpty(p.Key))
-                        claims.Add(new Claim(AppwriteClaimTypes.Pref(p.Key), p.Value.ToString()));
-                }
             }
 
             var identity = new ClaimsIdentity(claims, Scheme.Name);
             var principal = new ClaimsPrincipal(identity);
 
             var authenticationProperties = new AuthenticationProperties();
+            authenticationProperties.StoreTokens(authenticationTokens);
 
-            //vielleicht müssen wir dann das hin und her im cookie nicht machen.
-            //authenticationProperties.ExpiresUtc = jwtToken.ValidTo.AddMinutes(-14);
-
-            var token = new AuthenticationToken { Name = AppwriteAuthenticationDefaults.AuthenticationTokenAppwriteJwt, Value = jwt.Jwt };
-            var tokenExpiration = new AuthenticationToken { Name = AppwriteAuthenticationDefaults.AuthenticationTokenAppwriteJwtExpires, Value = jwtToken.ValidTo.ToString("O") };
-            var appwriteSession = new AuthenticationToken { Name = AppwriteAuthenticationDefaults.AuthenticationTokenAppwriteSession, Value = JsonSerializer.Serialize(session.ToMap()) };
-
-            authenticationProperties.StoreTokens(new List<AuthenticationToken>() { token, appwriteSession, tokenExpiration });
             var ticket = new AuthenticationTicket(principal, authenticationProperties, Scheme.Name);
 
             return HandleRequestResult.Success(ticket);

@@ -28,6 +28,11 @@ namespace AppwriteHelper
             return builder.AddRemoteScheme<AppwriteAuthenticationOptions, AppwriteAuthenticationHandler>(authenticationScheme, displayName, configureOptions);
         }
 
+        public static AuthenticationBuilder AddAppwriteCookieAuthentication(this AuthenticationBuilder builder)
+        {
+            return builder.AddAppwriteCookieAuthentication(AppwriteAuthenticationDefaults.CookieAuthenticationScheme, options => { });
+        }
+
         public static AuthenticationBuilder AddAppwriteCookieAuthentication(this AuthenticationBuilder builder, Action<AppwriteCookieAuthenticationOptions> configureOptions)
         {
             return builder.AddAppwriteCookieAuthentication(AppwriteAuthenticationDefaults.CookieAuthenticationScheme, configureOptions);
