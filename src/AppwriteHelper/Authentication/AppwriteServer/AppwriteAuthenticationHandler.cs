@@ -121,6 +121,7 @@ namespace AppwriteHelper.Authentication.AppwriteServer
                         .SetEndpoint(Options.AppwriteEndpoint + "/v1")
                         .SetProject(Options.AppwriteProject)
                         .SetKey(Options.AppwriteKey);
+                    
 
                     Account _account = new(adminClient);
                     var session = await _account.CreateSession(userId, secret);
