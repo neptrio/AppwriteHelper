@@ -47,6 +47,25 @@ namespace AppwriteHelper
             return services;
         }
 
+        public static IServiceCollection AddAppwriteStorageBucket(this IServiceCollection services, string bucketName)
+        {
+            services.AddKeyedScoped<IStorageBucket>(bucketName, (sp, key) =>
+            {
+                var storage = new StorageBucket(sp.GetRequiredService<IConfiguration>(), bucketName);
+
+                var appwriteServerClient = sp.GetKeyedService<IAppwriteClientFactory>(Constants.APPWRITE_CLIENT_SERVER);
+                if (appwriteServerClient != null)
+                    storage.SetServerClientFactory(appwriteServerClient);
+
+                var appwriteUserClient = sp.GetKeyedService<IAppwriteClientFactory>(Constants.APPWRITE_CLIENT_USER);
+                if (appwriteUserClient != null)
+                    storage.SetUserClientFactory(appwriteUserClient);
+
+                return storage;
+            });
+
+            return services;
+        }
 
         public static IServiceCollection AddGenericAppwriteCollection<T>(this IServiceCollection services, string databaseName) where T : DocumentData
         {
