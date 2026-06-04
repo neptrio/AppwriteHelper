@@ -13,7 +13,7 @@ PM > Install-Package AppwriteHelper
 
 # Compatibility
 
-This package follows the Appwrite .NET SDK versioning scheme (0.x.0) and is compatible with the corresponding Appwrite .NET SDK release. A drawback of following Appwrite's versioning is that breaking changes are not immediately obvious when using semantic versioning. The patch version number (0.0.x) does not follow the SDK's versioning and may differ.
+This package follows the Appwrite .NET SDK versioning scheme (x.x.0) and is compatible with the corresponding Appwrite .NET SDK release. A drawback of following Appwrite's versioning is that breaking changes with the server are not immediately obvious when using semantic versioning. The patch version number (0.0.x) does not follow the SDK's versioning and may differ.
 
 # Important Notes
 
