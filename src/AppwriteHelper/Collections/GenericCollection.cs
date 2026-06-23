@@ -134,6 +134,17 @@ namespace AppwriteHelper.Collections
             return GetOrInitUserTables();
         }
 
+        public async Task<T?> UpsertRow(T row, List<string>? permissions = null, bool useServerClient = false)
+        {
+            var updatedDocument = await GetTables(useServerClient).UpsertRow(databaseId: DATABASE_ID,
+                                   tableId: COLLECTION_ID,
+                                   rowId: row.Id,
+                                   data: row,
+                                   permissions: permissions);
+
+            return JsonSerializer.Deserialize<T>(JsonSerializer.Serialize(updatedDocument.Data));
+        }
+
         public async Task<T?> UpdateRow(T row, List<string>? permissions = null, bool useServerClient = false)
         {
             var updatedDocument = await GetTables(useServerClient).UpdateRow(databaseId: DATABASE_ID,
