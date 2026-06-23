@@ -89,6 +89,14 @@ namespace AppwriteHelper.Collections
             return ServerDatabases;
         }
 
+        [Obsolete("This method has been deprecated. Please use `GetTables` instead.")]
+        private Databases GetDatabases(bool userServerClient)
+        {
+            if (userServerClient)
+                return GetOrInitServerDatabases();
+            return GetOrInitUserDatabases();
+        }
+
         #endregion
 
         private TablesDB GetOrInitUserTables()
@@ -117,16 +125,6 @@ namespace AppwriteHelper.Collections
             return ServerTables;
         }
 
-
-        [Obsolete("This method has been deprecated. Please use `GetTables` instead.")]
-        private Databases GetDatabases(bool userServerClient)
-        {
-            if (userServerClient)
-                return GetOrInitServerDatabases();
-            return GetOrInitUserDatabases();
-        }
-
-        
         private TablesDB GetTables(bool userServerClient)
         {
             if (userServerClient)
@@ -134,23 +132,119 @@ namespace AppwriteHelper.Collections
             return GetOrInitUserTables();
         }
 
-        public async Task<T?> UpsertRow(T row, List<string>? permissions = null, bool useServerClient = false)
+        public async Task<T?> GetRow(string id, bool useServerClient = false, string? transactionId = null)
+        {
+            var document = await GetTables(useServerClient).GetRow(
+                                   databaseId: DATABASE_ID,
+                                   tableId: COLLECTION_ID,
+                                   rowId: id,
+                                   transactionId: transactionId);
+
+            return JsonSerializer.Deserialize<T>(JsonSerializer.Serialize(document.Data));
+        }
+
+        public async Task<IEnumerable<T>> GetRows(List<string>? queries = null, bool useServerClient = false, string? transactionId = null)
+        {
+            var documents = new List<T>();
+
+            var documentsFromDatabase = await GetTables(useServerClient).ListRows(
+                                   databaseId: DATABASE_ID,
+                                   tableId: COLLECTION_ID,
+                                   queries: queries,
+                                   transactionId: transactionId);
+
+            foreach (var document in documentsFromDatabase.Rows)
+            {
+                var d = JsonSerializer.Deserialize<T>(JsonSerializer.Serialize(document.Data));
+                if (d == null)
+                    continue;
+
+                documents.Add(d);
+            }
+            return documents;
+        }
+
+        public async Task<T?> UpsertRow(T row, List<string>? permissions = null, bool useServerClient = false, string? transactionId = null)
         {
             var updatedDocument = await GetTables(useServerClient).UpsertRow(databaseId: DATABASE_ID,
                                    tableId: COLLECTION_ID,
                                    rowId: row.Id,
                                    data: row,
-                                   permissions: permissions);
+                                   permissions: permissions,
+                                   transactionId: transactionId);
 
             return JsonSerializer.Deserialize<T>(JsonSerializer.Serialize(updatedDocument.Data));
         }
 
-        public async Task<T?> UpdateRow(T row, List<string>? permissions = null, bool useServerClient = false)
+        public async Task<T?> UpsertRow(string rowId, object? data, List<string>? permissions = null, bool useServerClient = false, string? transactionId = null)
+        {
+            var updatedDocument = await GetTables(useServerClient).UpsertRow(databaseId: DATABASE_ID,
+                                   tableId: COLLECTION_ID,
+                                   rowId: rowId,
+                                   data: data,
+                                   permissions: permissions,
+                                   transactionId: transactionId);
+
+            return JsonSerializer.Deserialize<T>(JsonSerializer.Serialize(updatedDocument.Data));
+        }
+
+        public async Task<T?> UpdateRow(T row, List<string>? permissions = null, bool useServerClient = false, string? transactionId = null)
         {
             var updatedDocument = await GetTables(useServerClient).UpdateRow(databaseId: DATABASE_ID,
                                    tableId: COLLECTION_ID,
                                    rowId: row.Id,
                                    data: row,
+                                   permissions: permissions,
+                                   transactionId: transactionId);
+
+            return JsonSerializer.Deserialize<T>(JsonSerializer.Serialize(updatedDocument.Data));
+        }
+
+        public async Task<T?> UpdateRow(string rowId, object? data, List<string>? permissions = null, bool useServerClient = false, string? transactionId = null)
+        {
+            var updatedDocument = await GetTables(useServerClient).UpdateRow(databaseId: DATABASE_ID,
+                                   tableId: COLLECTION_ID,
+                                   rowId: rowId,
+                                   data: data,
+                                   permissions: permissions,
+                                   transactionId: transactionId);
+
+            return JsonSerializer.Deserialize<T>(JsonSerializer.Serialize(updatedDocument.Data));
+        }
+
+        public async Task<T?> CreateRow(T document, List<string>? permissions = null, bool useServerClient = false, string? transactionId = null)
+        {
+            var newDocument = await GetTables(useServerClient).CreateRow(
+                                   databaseId: DATABASE_ID,
+                                   tableId: COLLECTION_ID,
+                                   rowId: ID.Unique(),
+                                   data: document,
+                                   permissions: permissions,
+                                   transactionId: transactionId);
+
+            return JsonSerializer.Deserialize<T>(JsonSerializer.Serialize(newDocument.Data));
+        }
+
+        public async Task<object?> DeleteDocument(string rowId, bool useServerClient = false, string? transactionId = null)
+        {
+            var newDocument = await GetTables(useServerClient).DeleteRow(
+                                   databaseId: DATABASE_ID,
+                                   tableId: COLLECTION_ID,
+                                   rowId: rowId,
+                                   transactionId: transactionId);
+
+            return newDocument;
+        }
+
+        #region Obsolete Actions
+
+        [Obsolete("This method has been deprecated. Please use `UpdateRow` instead.")]
+        public async Task<T?> UpdateDocument(string documentId, object? document, List<string>? permissions = null, bool useServerClient = false)
+        {
+            var updatedDocument = await GetDatabases(useServerClient).UpdateDocument(databaseId: DATABASE_ID,
+                                   collectionId: COLLECTION_ID,
+                                   documentId: documentId,
+                                   data: document,
                                    permissions: permissions);
 
             return JsonSerializer.Deserialize<T>(JsonSerializer.Serialize(updatedDocument.Data));
@@ -168,17 +262,7 @@ namespace AppwriteHelper.Collections
             return JsonSerializer.Deserialize<T>(JsonSerializer.Serialize(updatedDocument.Data));
         }
 
-        public async Task<T?> UpdateDocument(string documentId, object? document, List<string>? permissions = null, bool useServerClient = false)
-        {
-            var updatedDocument = await GetDatabases(useServerClient).UpdateDocument(databaseId: DATABASE_ID,
-                                   collectionId: COLLECTION_ID,
-                                   documentId: documentId,
-                                   data: document,
-                                   permissions: permissions);
-
-            return JsonSerializer.Deserialize<T>(JsonSerializer.Serialize(updatedDocument.Data));
-        }
-
+        [Obsolete("This method has been deprecated. Please use `CreateRow` instead.")]
         public async Task<T?> CreateDocument(T document, List<string>? permissions = null, bool useServerClient = false)
         {
 
@@ -194,9 +278,9 @@ namespace AppwriteHelper.Collections
 
         }
 
+        [Obsolete("This method has been deprecated. Please use `DeleteRow` instead.")]
         public async Task<object?> DeleteDocument(string documentId, bool useServerClient = false)
         {
-
             var newDocument = await GetDatabases(useServerClient).DeleteDocument(
                                    databaseId: DATABASE_ID,
                                    collectionId: COLLECTION_ID,
@@ -207,18 +291,18 @@ namespace AppwriteHelper.Collections
             //return JsonConvert.DeserializeObject<T>(JsonConvert.SerializeObject(newDocument));
         }
 
+        [Obsolete("This method has been deprecated. Please use `GetRow` instead.")]
         public async Task<T?> GetDocument(string id, bool useServerClient = false)
         {
-
             var document = await GetDatabases(useServerClient).GetDocument(
                                    databaseId: DATABASE_ID,
                                    collectionId: COLLECTION_ID,
                                    documentId: id
                                );
             return JsonSerializer.Deserialize<T>(JsonSerializer.Serialize(document.Data));
-
         }
 
+        [Obsolete("This method has been deprecated. Please use `GetRows` instead.")]
         public async Task<IEnumerable<T>> GetDocuments(List<string>? queries = null, bool useServerClient = false)
         {
             var documents = new List<T>();
@@ -239,5 +323,7 @@ namespace AppwriteHelper.Collections
             }
             return documents;
         }
+
+        #endregion
     }
 }
