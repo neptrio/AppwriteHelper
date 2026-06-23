@@ -91,7 +91,7 @@ namespace AppwriteHelper.Authentication
             var appwriteSession = new AuthenticationToken
             {
                 Name = AppwriteAuthenticationDefaults.AuthenticationTokenAppwriteSession,
-                Value = session.Secret
+                Value = JsonSerializer.Serialize(session.ToMap())
             };
 
             authenticationProperties.StoreTokens([appwriteSessionId, appwriteSession]);
