@@ -15,8 +15,7 @@ namespace AppwriteHelper.Collections
         protected readonly string DATABASE_ID;
         protected readonly string COLLECTION_ID;
 
-        private Databases? UserDatabases;
-        private Databases? ServerDatabases;
+
 
         public GenericCollection(IConfiguration configuration, string databaseId, string? collectionId = null)
         {
@@ -46,46 +45,6 @@ namespace AppwriteHelper.Collections
             if (serverAppwriteClient != null)
                 SetServerClientFactory(serverAppwriteClient);
         }
-
-        #region Obsolet Databases
-
-        [Obsolete]
-        private Databases GetOrInitUserDatabases()
-        {
-            if (UserDatabases == null)
-            {
-                if (_userAppwriteClient?.Client == null)
-                    throw new InvalidOperationException();
-
-                UserDatabases = new(_userAppwriteClient.Client);
-            }
-
-            return UserDatabases;
-        }
-
-        [Obsolete]
-        private Databases GetOrInitServerDatabases()
-        {
-            if (ServerDatabases == null)
-            {
-                if (_serverAppwriteClient?.Client == null)
-                    throw new InvalidOperationException();
-
-                ServerDatabases = new(_serverAppwriteClient.Client);
-            }
-
-            return ServerDatabases;
-        }
-
-        [Obsolete("This method has been deprecated. Please use `GetTables` instead.")]
-        private Databases GetDatabases(bool userServerClient)
-        {
-            if (userServerClient)
-                return GetOrInitServerDatabases();
-            return GetOrInitUserDatabases();
-        }
-
-        #endregion
 
         public async Task<T?> GetRow(string id, bool useServerClient = false, string? transactionId = null)
         {

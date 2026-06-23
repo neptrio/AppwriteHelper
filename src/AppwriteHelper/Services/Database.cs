@@ -7,6 +7,9 @@ namespace AppwriteHelper.Services
         private TablesDB? UserTables;
         private TablesDB? ServerTables;
 
+        private Databases? UserDatabases;
+        private Databases? ServerDatabases;
+
         private IAppwriteClientFactory? _userAppwriteClient;
         private IAppwriteClientFactory? _serverAppwriteClient;
 
@@ -19,6 +22,46 @@ namespace AppwriteHelper.Services
         {
             _serverAppwriteClient = client;
         }
+
+        #region Obsolet Databases
+
+        [Obsolete]
+        private Databases GetOrInitUserDatabases()
+        {
+            if (UserDatabases == null)
+            {
+                if (_userAppwriteClient?.Client == null)
+                    throw new InvalidOperationException();
+
+                UserDatabases = new(_userAppwriteClient.Client);
+            }
+
+            return UserDatabases;
+        }
+
+        [Obsolete]
+        private Databases GetOrInitServerDatabases()
+        {
+            if (ServerDatabases == null)
+            {
+                if (_serverAppwriteClient?.Client == null)
+                    throw new InvalidOperationException();
+
+                ServerDatabases = new(_serverAppwriteClient.Client);
+            }
+
+            return ServerDatabases;
+        }
+
+        [Obsolete("This method has been deprecated. Please use `GetTables` instead.")]
+        protected Databases GetDatabases(bool userServerClient)
+        {
+            if (userServerClient)
+                return GetOrInitServerDatabases();
+            return GetOrInitUserDatabases();
+        }
+
+        #endregion
 
         private TablesDB GetOrInitUserTables()
         {
