@@ -1,13 +1,14 @@
 ﻿using Appwrite;
 using Appwrite.Services;
 using AppwriteHelper.Models;
+using AppwriteHelper.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using System.Text.Json;
 
 namespace AppwriteHelper.Collections
 {
-    public class GenericCollection<T> : IGenericCollection<T> where T : DocumentData
+    public class GenericCollection<T> : Database, IGenericCollection<T> where T : DocumentData
     {
         private readonly IConfiguration _configuration;
 
@@ -16,12 +17,6 @@ namespace AppwriteHelper.Collections
 
         private Databases? UserDatabases;
         private Databases? ServerDatabases;
-
-        private TablesDB? UserTables;
-        private TablesDB? ServerTables;
-
-        private IAppwriteClientFactory? _userAppwriteClient;
-        private IAppwriteClientFactory? _serverAppwriteClient;
 
         public GenericCollection(IConfiguration configuration, string databaseId, string? collectionId = null)
         {
@@ -45,18 +40,11 @@ namespace AppwriteHelper.Collections
             [FromKeyedServices(Constants.APPWRITE_CLIENT_SERVER)] IAppwriteClientFactory? serverAppwriteClient = null)
             : this(configuration, databaseId, collectionId)
         {
-            _userAppwriteClient = userAppwriteClient;
-            _serverAppwriteClient = serverAppwriteClient;
-        }
-
-        public void SetUserClientFactory(IAppwriteClientFactory client)
-        {
-            _userAppwriteClient = client;
-        }
-
-        public void SetServerClientFactory(IAppwriteClientFactory client)
-        {
-            _serverAppwriteClient = client;
+            if (userAppwriteClient != null)
+                SetUserClientFactory(userAppwriteClient);
+            
+            if (serverAppwriteClient != null)
+                SetServerClientFactory(serverAppwriteClient);
         }
 
         #region Obsolet Databases
@@ -98,39 +86,6 @@ namespace AppwriteHelper.Collections
         }
 
         #endregion
-
-        private TablesDB GetOrInitUserTables()
-        {
-            if (UserTables == null)
-            {
-                if (_userAppwriteClient?.Client == null)
-                    throw new InvalidOperationException();
-
-                UserTables = new(_userAppwriteClient.Client);
-            }
-
-            return UserTables;
-        }
-
-        private TablesDB GetOrInitServerTables()
-        {
-            if (ServerTables == null)
-            {
-                if (_serverAppwriteClient?.Client == null)
-                    throw new InvalidOperationException();
-
-                ServerTables = new(_serverAppwriteClient.Client);
-            }
-
-            return ServerTables;
-        }
-
-        private TablesDB GetTables(bool userServerClient)
-        {
-            if (userServerClient)
-                return GetOrInitServerTables();
-            return GetOrInitUserTables();
-        }
 
         public async Task<T?> GetRow(string id, bool useServerClient = false, string? transactionId = null)
         {
